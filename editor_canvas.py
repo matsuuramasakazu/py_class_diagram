@@ -216,9 +216,8 @@ class UMLCanvas(tk.Canvas):
             content = "\n".join(getattr(uml_class, part))
             self.editor_widget.insert("1.0", content)
             
-            # Adjust initial height: lines + 1 for margin
-            line_count = int(float(self.editor_widget.index(tk.END)) - 1.0)
-            new_h = (line_count + 1) * ATTR_LINE_HEIGHT + 10 # 10 is padding
+            # Adjust initial height
+            new_h = self._get_editor_height()
             self.editor_widget.bind("<KeyRelease>", self.update_editor_height)
             h = max(h, new_h)
             
@@ -248,14 +247,17 @@ class UMLCanvas(tk.Canvas):
         ops_h = rendering.get_ops_height(uml_class)
         uml_class.height = HEADER_HEIGHT + attr_h + ops_h
 
-    def update_editor_height(self, event=None):
-        if not self.editor_widget or not isinstance(self.editor_widget, tk.Text):
-            return
-        # Calculate required height based on line count
+    def _get_editor_height(self) -> int:
+        """Calculate required height for text editor based on line count."""
+        if not self.editor_widget or self.editing_part == "name":
+            return 0
+        # For tk.Text widget used in attributes/operations
         line_count = int(float(self.editor_widget.index(tk.END)) - 1.0)
-        new_h = (line_count + 1) * ATTR_LINE_HEIGHT + 10
-        # Update distance of window from top if needed, but here we just update height
-        if self.editor_window_id:
+        return (line_count + 1) * ATTR_LINE_HEIGHT + 10
+
+    def update_editor_height(self, event=None):
+        new_h = self._get_editor_height()
+        if new_h > 0 and self.editor_window_id:
             self.itemconfigure(self.editor_window_id, height=new_h)
 
     def commit_edit(self, event=None) -> bool:
