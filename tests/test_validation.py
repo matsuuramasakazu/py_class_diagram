@@ -2,6 +2,7 @@ import unittest
 import json
 import persistence
 from model import UMLDiagram, UMLClass
+from editor_canvas import MERMAID_NAME_REGEX
 
 class TestValidation(unittest.TestCase):
     def test_persistence_layout_validation(self):
@@ -27,7 +28,7 @@ class TestValidation(unittest.TestCase):
 
     def test_mermaid_name_regex(self):
         import re
-        regex = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
+        regex = MERMAID_NAME_REGEX
         self.assertTrue(re.match(regex, "MyClass"))
         self.assertTrue(re.match(regex, "_InternalClass"))
         self.assertTrue(re.match(regex, "Class123"))

@@ -2,9 +2,10 @@ import tkinter as tk
 from tkinter import messagebox
 from enum import Enum, auto
 import re
-# No typing imports needed for built-in generics
 from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
 import rendering
+
+MERMAID_NAME_REGEX = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
 
 class InteractionMode(Enum):
     SELECT = auto()
@@ -216,7 +217,7 @@ class UMLCanvas(tk.Canvas):
                 return
 
             # Mermaid compatible: Alphanumeric and underscores, not starting with a digit
-            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", new_value):
+            if not re.match(MERMAID_NAME_REGEX, new_value):
                 messagebox.showerror("Validation Error", 
                                    "Class name must start with a letter or underscore and contain only alphanumeric characters.")
                 self.cleanup_editor()

@@ -5,6 +5,7 @@ import os
 from model import UMLDiagram, UMLClass, RelationshipType
 from editor_canvas import UMLCanvas, InteractionMode
 import persistence
+import rendering
 
 class UMLApp:
     def __init__(self, root):
