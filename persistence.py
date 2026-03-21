@@ -14,6 +14,9 @@ RELATIONSHIP_MAP = {
 
 REVERSE_RELATIONSHIP_MAP = {v: k for k, v in RELATIONSHIP_MAP.items()}
 
+_TOOL_IDENTIFIER = "py_class_diagram"
+
+
 def to_mermaid(diagram: UMLDiagram) -> str:
     lines = ["classDiagram"]
     
@@ -31,7 +34,8 @@ def to_mermaid(diagram: UMLDiagram) -> str:
         
     return "\n".join(lines)
 
-def to_layout_json(diagram: UMLDiagram) -> str:
+
+def _to_layout_dict(diagram: UMLDiagram) -> dict:
     layout = {}
     for uml_class in diagram.classes:
         layout[uml_class.name] = {
@@ -40,19 +44,90 @@ def to_layout_json(diagram: UMLDiagram) -> str:
             "w": uml_class.width,
             "h": uml_class.height
         }
-    return json.dumps(layout, indent=4)
+    return layout
 
-def load_diagram(mermaid_str: str, layout_json: str | None = None) -> UMLDiagram:
+
+def to_layout_json(diagram: UMLDiagram) -> str:
+    return json.dumps(_to_layout_dict(diagram), indent=4)
+
+
+def serialize(diagram: UMLDiagram, title: str = "Class Diagram") -> str:
+    """Serialize a UMLDiagram to the 3-section Markdown format.
+    
+    Format:
+        # <title>
+        
+        ```mermaid
+        <mermaid content>
+        ```
+        
+        <!-- {"tool": ..., "layout": {...}} -->
+    """
+    mermaid_content = to_mermaid(diagram)
+    data_section = {
+        "tool": _TOOL_IDENTIFIER,
+        "layout": _to_layout_dict(diagram),
+    }
+    json_str = json.dumps(data_section, indent=4)
+    
+    return (
+        f"# {title}\n\n"
+        f"```mermaid\n{mermaid_content}\n```\n\n"
+        f"<!--\n{json_str}\n-->\n"
+    )
+
+
+def save_to_file(diagram: UMLDiagram, file_path: str, title: str = "Class Diagram") -> None:
+    """Serialize a UMLDiagram and write it to a file."""
+    content = serialize(diagram, title)
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+def deserialize(file_content: str) -> UMLDiagram:
+    """Deserialize a UMLDiagram from the 3-section Markdown format.
+    
+    Extracts the Mermaid section and the JSON data section using regex,
+    then reconstructs the UMLDiagram with layout information.
+    Falls back to (0, 0) placement for classes missing layout data.
+    
+    Raises:
+        ValueError: If the Mermaid section cannot be found in the content.
+    """
+    # Extract Mermaid section
+    mermaid_match = re.search(r"```mermaid\s+(.*?)\s+```", file_content, re.DOTALL)
+    if not mermaid_match:
+        raise ValueError("Mermaid section not found in file content.")
+    mermaid_str = mermaid_match.group(1)
+    
+    # Extract JSON data section (HTML comment)
+    layout_data = {}
+    json_match = re.search(r"<!--\s*(\{.*?\})\s*-->", file_content, re.DOTALL)
+    if json_match:
+        try:
+            parsed = json.loads(json_match.group(1))
+            if isinstance(parsed, dict):
+                layout_data = parsed.get("layout", {})
+                if not isinstance(layout_data, dict):
+                    layout_data = {}
+        except json.JSONDecodeError:
+            layout_data = {}
+    
+    return _parse_mermaid(mermaid_str, layout_data)
+
+
+def load_from_file(file_path: str) -> UMLDiagram:
+    """Read a Markdown file and deserialize a UMLDiagram from it."""
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return deserialize(content)
+
+
+def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
+    """Parse Mermaid classDiagram text and layout data into a UMLDiagram."""
     diagram = UMLDiagram()
     class_map: dict[str, UMLClass] = {}
-    
-    # Layout parsing
-    layout_data = {}
-    if layout_json:
-        layout_data = json.loads(layout_json)
-        if not isinstance(layout_data, dict):
-            raise ValueError("Layout JSON must be a dictionary mapping class names to position objects.")
-        
+
     def _get_or_create_class(name: str) -> UMLClass:
         if name in class_map:
             return class_map[name]
@@ -60,27 +135,25 @@ def load_diagram(mermaid_str: str, layout_json: str | None = None) -> UMLDiagram
         new_class = UMLClass(name=name)
         if name in layout_data:
             layout_info = layout_data[name]
-            new_class.x = layout_info.get("x", 0.0)
-            new_class.y = layout_info.get("y", 0.0)
-            new_class.width = layout_info.get("w", 150.0)
-            new_class.height = layout_info.get("h", 100.0)
+            new_class.x = float(layout_info.get("x", 0.0))
+            new_class.y = float(layout_info.get("y", 0.0))
+            new_class.width = float(layout_info.get("w", 150.0))
+            new_class.height = float(layout_info.get("h", 100.0))
+        # Fallback: classes not in layout_data stay at default (0.0, 0.0)
             
         diagram.add_class(new_class)
         class_map[name] = new_class
         return new_class
     
-    # Regex for class definitions
-    # Matches: class Name { ... }
+    # Regex for class definitions: class Name { ... }
     class_regex = re.compile(r"class\s+(\w+)\s*\{([\s\S]*?)\}", re.MULTILINE)
     
-    # Find all classes
     for match in class_regex.finditer(mermaid_str):
         class_name = match.group(1)
         content = match.group(2).strip()
         
         uml_class = _get_or_create_class(class_name)
         
-        # Split content into lines and extract attributes/operations
         # Simple heuristic: if it ends with (), it's an operation
         for line in content.splitlines():
             line = line.strip()
@@ -92,8 +165,6 @@ def load_diagram(mermaid_str: str, layout_json: str | None = None) -> UMLDiagram
                 uml_class.add_attribute(line)
         
     # Regex for relationships
-    # Matches: Source Symbol Target : Label
-    # Symbols: --|>, ..|>, --*, --o, -->, --
     # Sort by length descending to ensure longer symbols match first
     sorted_symbols = sorted(REVERSE_RELATIONSHIP_MAP.keys(), key=len, reverse=True)
     rel_symbols = "|".join([re.escape(s) for s in sorted_symbols])
@@ -112,3 +183,19 @@ def load_diagram(mermaid_str: str, layout_json: str | None = None) -> UMLDiagram
         diagram.add_relationship(relationship)
         
     return diagram
+
+
+# --- Legacy API (kept for backward compatibility within tests) ---
+def load_diagram(mermaid_str: str, layout_json: str | None = None) -> UMLDiagram:
+    """Load a UMLDiagram from a Mermaid string and optional layout JSON string.
+    
+    This function is kept for use in unit tests.
+    For file I/O, use load_from_file() instead.
+    """
+    layout_data = {}
+    if layout_json:
+        parsed = json.loads(layout_json)
+        if not isinstance(parsed, dict):
+            raise ValueError("Layout JSON must be a dictionary mapping class names to position objects.")
+        layout_data = parsed
+    return _parse_mermaid(mermaid_str, layout_data)
