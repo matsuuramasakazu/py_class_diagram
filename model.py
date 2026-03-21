@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
+
 # No typing imports needed for built-in generics
 
 class RelationshipType(Enum):

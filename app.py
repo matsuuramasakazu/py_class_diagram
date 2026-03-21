@@ -75,9 +75,22 @@ class UMLApp:
             self.canvas.set_mode(InteractionMode.CREATE_RELATIONSHIP, rel_type)
 
     def add_class(self):
+        if not self.canvas.commit_edit():
+            return
+            
         offset = len(self.diagram.classes) * 20
         new_x, new_y = 100 + offset, 100 + offset
-        new_class = UMLClass(name="NewClass", x=new_x, y=new_y)
+        
+        # Make name unique
+        base_name = "NewClass"
+        name = base_name
+        counter = 1
+        while any(c.name == name for c in self.diagram.classes):
+            name = f"{base_name}_{counter}"
+            counter += 1
+            
+        new_class = UMLClass(name=name, x=new_x, y=new_y)
+        self.canvas.update_class_size(new_class)
         self.diagram.add_class(new_class)
         self.canvas.redraw()
         # Trigger inline editing for the name
@@ -135,6 +148,9 @@ class UMLApp:
             messagebox.showerror("Load Error", f"Failed to load diagram: {e}")
 
     def on_delete_key(self, event):
+        if self.canvas.editor_widget:
+            return # Don't delete classes while editing
+            
         if self.canvas.selected_classes and messagebox.askyesno(
             "Delete", f"Delete {len(self.canvas.selected_classes)} selected class(es)?"
         ):

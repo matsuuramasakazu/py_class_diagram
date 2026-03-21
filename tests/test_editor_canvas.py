@@ -18,6 +18,13 @@ class TestEditorCanvas(unittest.TestCase):
         # but here we can just test the logic by calling the handlers.
         # We'll use a real UMLCanvas but mock the actual tk calls if possible.
         # Alternatively, we just test the state changes.
+        # Mock tkinter.font.Font
+        self.font_patcher = patch('tkinter.font.Font')
+        self.mock_font = self.font_patcher.start()
+        # Mock measure to return some width
+        self.mock_font.return_value.measure.return_value = 50
+        self.mock_font.return_value.metrics.return_value = 15
+        
         self.canvas = UMLCanvas(self.root, self.diag)
         # Mock canvas methods that redraw uses
         self.canvas.delete = MagicMock()
@@ -25,6 +32,9 @@ class TestEditorCanvas(unittest.TestCase):
         self.canvas.create_line = MagicMock()
         self.canvas.create_text = MagicMock()
         self.canvas.coords = MagicMock()
+
+    def tearDown(self):
+        self.font_patcher.stop()
 
     def test_find_class_at(self):
         self.assertEqual(self.canvas.find_class_at(50, 50), self.c1)

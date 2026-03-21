@@ -2,8 +2,15 @@ import tkinter as tk
 from tkinter import messagebox
 from enum import Enum, auto
 import re
-from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
 import rendering
+from typing import Any
+import tkinter.font as tkfont
+from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
+from rendering import (
+    draw_class_box, draw_relationship_line,
+    HEADER_HEIGHT, ATTR_LINE_HEIGHT, ATTR_PADDING, MIN_COMPARTMENT_HEIGHT, MIN_WIDTH,
+    HEADER_FONT, CONTENT_FONT, get_attr_height, get_ops_height
+)
 
 MERMAID_NAME_REGEX = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
 
@@ -27,10 +34,14 @@ class UMLCanvas(tk.Canvas):
         self.temp_line_id: int | None = None
         self.rel_source_class: UMLClass | None = None
         
+        self._is_committing = False # To prevent re-entrant calls
+        
         # Inline editing state
         self.editor_widget: tk.Widget | None = None
+        self.editor_window_id: int | None = None
         self.editing_class: UMLClass | None = None
         self.editing_part: str | None = None
+        self.original_value: Any = None # Store value before editing
         
         # Binds
         self.bind("<Button-1>", self.on_button_press)
@@ -73,7 +84,8 @@ class UMLCanvas(tk.Canvas):
 
     def on_button_press(self, event):
         if self.editor_widget:
-            self.commit_edit()
+            if not self.commit_edit():
+                return # Still editing due to validation error, don't select or drag
             
         self.drag_start_x = event.x
         self.drag_start_y = event.y
@@ -175,19 +187,25 @@ class UMLCanvas(tk.Canvas):
         h = clicked_class.height
         attr_h = max(0, min(attr_h, h - header_h - minimal_ops_space))
         
-        if rel_y < header_h:
-            self.start_editing(clicked_class, "name", clicked_class.x, clicked_class.y, clicked_class.width, header_h)
-        elif rel_y < header_h + attr_h:
-            self.start_editing(clicked_class, "attributes", clicked_class.x, clicked_class.y + header_h, clicked_class.width, attr_h)
+        if rel_y < HEADER_HEIGHT:
+            self.start_editing(clicked_class, "name", clicked_class.x, clicked_class.y, clicked_class.width, HEADER_HEIGHT)
+        elif rel_y < HEADER_HEIGHT + attr_h:
+            self.start_editing(clicked_class, "attributes", clicked_class.x, clicked_class.y + HEADER_HEIGHT, clicked_class.width, attr_h)
         else:
-            self.start_editing(clicked_class, "operations", clicked_class.x, clicked_class.y + header_h + attr_h, clicked_class.width, clicked_class.height - (header_h + attr_h))
+            self.start_editing(clicked_class, "operations", clicked_class.x, clicked_class.y + HEADER_HEIGHT + attr_h, clicked_class.width, clicked_class.height - (HEADER_HEIGHT + attr_h))
 
     def start_editing(self, uml_class, part, x, y, w, h):
-        if self.editor_widget:
-            self.commit_edit()
+        if self.editor_widget and not self.commit_edit():
+            return
             
         self.editing_class = uml_class
         self.editing_part = part
+        
+        # Store original value for cancellation
+        if part == "name":
+            self.original_value = uml_class.name
+        else:
+            self.original_value = list(getattr(uml_class, part))
         
         if part == "name":
             self.editor_widget = tk.Entry(self, font=("Arial", 10, "bold"), justify="center")
@@ -198,38 +216,83 @@ class UMLCanvas(tk.Canvas):
             content = "\n".join(getattr(uml_class, part))
             self.editor_widget.insert("1.0", content)
             
+            # Adjust initial height
+            new_h = self._get_editor_height()
+            self.editor_widget.bind("<KeyRelease>", self.update_editor_height)
+            h = max(h, new_h)
+            
         self.editor_widget.bind("<FocusOut>", lambda _: self.commit_edit())
         self.editor_widget.bind("<Escape>", lambda _: self.cancel_edit())
         
-        self.create_window(x, y, window=self.editor_widget, anchor="nw", width=w, height=h)
+        self.editor_window_id = self.create_window(x, y, window=self.editor_widget, anchor="nw", width=w, height=h)
         self.editor_widget.focus_set()
         if part == "name":
             self.editor_widget.selection_range(0, tk.END)
 
-    def commit_edit(self, event=None):
+    def update_class_size(self, uml_class: UMLClass):
+        """Calculate and update the optimal size for a class box based on its content."""
+        header_f = tkfont.Font(family=HEADER_FONT[0], size=HEADER_FONT[1], weight=HEADER_FONT[2])
+        content_f = tkfont.Font(family=CONTENT_FONT[0], size=CONTENT_FONT[1])
+
+        name_width = header_f.measure(uml_class.name)
+        content_lines = uml_class.attributes + uml_class.operations
+        max_content_width = max((content_f.measure(line) for line in content_lines), default=0)
+        
+        # Max of all widths + padding
+        max_w = max(name_width, max_content_width) + 20
+        uml_class.width = max(MIN_WIDTH, max_w)
+        
+        # Height: Header + Attr area + Ops area
+        attr_h = rendering.get_attr_height(uml_class)
+        ops_h = rendering.get_ops_height(uml_class)
+        uml_class.height = HEADER_HEIGHT + attr_h + ops_h
+
+    def _get_editor_height(self) -> int:
+        """Calculate required height for text editor based on line count."""
+        if not self.editor_widget or self.editing_part == "name":
+            return 0
+        # For tk.Text widget used in attributes/operations
+        line_count = int(float(self.editor_widget.index(tk.END)) - 1.0)
+        return (line_count + 1) * ATTR_LINE_HEIGHT + 10
+
+    def update_editor_height(self, event=None):
+        new_h = self._get_editor_height()
+        if new_h > 0 and self.editor_window_id:
+            self.itemconfigure(self.editor_window_id, height=new_h)
+
+    def commit_edit(self, event=None) -> bool:
         if not self.editor_widget or not self.editing_class:
-            return
+            return True
             
         if self.editing_part == "name":
-            new_value = self.editor_widget.get().strip()
-            if not new_value:
-                self.cleanup_editor()
-                return
+            if self._is_committing:
+                return False
+            self._is_committing = True
 
-            # Mermaid compatible: Alphanumeric and underscores, not starting with a digit
-            if not re.match(MERMAID_NAME_REGEX, new_value):
-                messagebox.showerror("Validation Error", 
-                                   "Class name must start with a letter or underscore and contain only alphanumeric characters.")
-                self.cleanup_editor()
-                return
+            try:
+                # Mermaid compatible: Alphanumeric and underscores, not starting with a digit
+                new_value = self.editor_widget.get().strip()
+                
+                # Combined validation
+                error_message = None
+                if not new_value:
+                    error_message = "Class name cannot be empty."
+                elif not re.match(MERMAID_NAME_REGEX, new_value):
+                    error_message = "Class name must start with a letter or underscore and contain only alphanumeric characters."
+                elif any(c.name == new_value for c in self.diagram.classes if c != self.editing_class):
+                    error_message = f"A class with name '{new_value}' already exists."
 
-            # Uniqueness check
-            if any(c.name == new_value for c in self.diagram.classes if c != self.editing_class):
-                messagebox.showerror("Validation Error", f"A class with name '{new_value}' already exists.")
-                self.cleanup_editor()
-                return
+                if error_message:
+                    # Unbind FocusOut to avoid recursive calls while showing dialog
+                    self.editor_widget.unbind("<FocusOut>")
+                    messagebox.showerror("Validation Error", error_message)
+                    if self.editor_widget:
+                        self.editor_widget.bind("<FocusOut>", lambda _: self.commit_edit())
+                    return False # Stay in edit mode
 
-            self.editing_class.name = new_value
+                self.editing_class.name = new_value
+            finally:
+                self._is_committing = False
         else:
             # For Text widget, we need to handle multi-line input
             new_value = self.editor_widget.get("1.0", tk.END).strip()
@@ -243,10 +306,14 @@ class UMLCanvas(tk.Canvas):
                     unique_lines.append(line)
             setattr(self.editing_class, self.editing_part, unique_lines)
             
+        self.update_class_size(self.editing_class)
         self.cleanup_editor()
         self.redraw()
+        return True
 
     def cancel_edit(self, event=None):
+        if self.editing_class and self.editing_part:
+            setattr(self.editing_class, self.editing_part, self.original_value)
         self.cleanup_editor()
         self.redraw()
 

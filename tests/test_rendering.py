@@ -20,14 +20,14 @@ class TestRendering(unittest.TestCase):
         
         # Check if horizontal dividers are drawn
         # Header line at y + 25 = 35
-        # Attribute line at y + 25 + (1*15+5) = 10 + 25 + 20 = 55
+        # Attribute separator at y + 25 + attr_h = 10 + 25 + 26 = 61
         self.canvas.create_line.assert_any_call(10, 35, 110, 35, fill="black")
-        self.canvas.create_line.assert_any_call(10, 55, 110, 55, fill="black")
+        self.canvas.create_line.assert_any_call(10, 61, 110, 61, fill="black")
         
         # Check if text is drawn
         self.canvas.create_text.assert_any_call(60.0, 22.5, text="User", font=("Arial", 10, "bold"))
         self.canvas.create_text.assert_any_call(15, 40, text="+ id: int", anchor="nw", font=("Arial", 9))
-        self.canvas.create_text.assert_any_call(15, 60, text="+ save()", anchor="nw", font=("Arial", 9))
+        self.canvas.create_text.assert_any_call(15, 66, text="+ save()", anchor="nw", font=("Arial", 9))
 
     def test_calculate_intersection(self):
         # Line from (0,0) to (100,100), box at (50,50) to (150,150)

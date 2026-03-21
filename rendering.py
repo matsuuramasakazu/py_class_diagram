@@ -2,13 +2,20 @@ import math
 import tkinter as tk
 from model import UMLClass, UMLRelationship, RelationshipType
 
+# Layout Constants
+HEADER_FONT = ("Arial", 10, "bold")
+CONTENT_FONT = ("Arial", 9)
 HEADER_HEIGHT = 25
-ATTR_LINE_HEIGHT = 15
-ATTR_PADDING = 5
+ATTR_LINE_HEIGHT = 18
+ATTR_PADDING = 8
 MIN_COMPARTMENT_HEIGHT = 20
+MIN_WIDTH = 100
 
 def get_attr_height(uml_class):
     return max(MIN_COMPARTMENT_HEIGHT, len(uml_class.attributes) * ATTR_LINE_HEIGHT + ATTR_PADDING)
+
+def get_ops_height(uml_class):
+    return max(MIN_COMPARTMENT_HEIGHT, len(uml_class.operations) * ATTR_LINE_HEIGHT + ATTR_PADDING)
 
 def get_angle(x1, y1, x2, y2):
     """Calculate angle of line from (x1, y1) to (x2, y2)"""
@@ -99,35 +106,31 @@ def draw_class_box(canvas, uml_class):
     
     # Compartment heights
     header_h = HEADER_HEIGHT
-    calculated_attr_h = get_attr_height(uml_class)
-    minimal_ops_space = 20
+    attr_h = get_attr_height(uml_class)
+    ops_h = get_ops_height(uml_class)
     
-    # Constrain attr_h so it doesn't exceed total height
-    attr_h = max(0, min(calculated_attr_h, h - header_h - minimal_ops_space))
-    
-    # Ensure they don't exceed total height or just draw lines
-    # For a basic implementation, we just draw the lines at these offsets
+    # Draw horizontal lines for compartments
     canvas.create_line(x, y + header_h, x + w, y + header_h, fill="black")
     canvas.create_line(x, y + header_h + attr_h, x + w, y + header_h + attr_h, fill="black")
     
     # Name
-    canvas.create_text(x + w/2, y + header_h/2, text=uml_class.name, font=("Arial", 10, "bold"))
+    canvas.create_text(x + w/2, y + header_h/2, text=uml_class.name, font=HEADER_FONT)
     
     # Attributes
     curr_y = y + header_h + 5
     for attr in uml_class.attributes:
         if curr_y + ATTR_LINE_HEIGHT > y + header_h + attr_h:
             break
-        canvas.create_text(x + 5, curr_y, text=attr, anchor="nw", font=("Arial", 9))
+        canvas.create_text(x + 5, curr_y, text=attr, anchor="nw", font=CONTENT_FONT)
         curr_y += ATTR_LINE_HEIGHT
         
     # Operations
     curr_y = y + header_h + attr_h + 5
     for op in uml_class.operations:
-        if curr_y + 15 > y + h:
+        if curr_y + ATTR_LINE_HEIGHT > y + h:
             break
-        canvas.create_text(x + 5, curr_y, text=op, anchor="nw", font=("Arial", 9))
-        curr_y += 15
+        canvas.create_text(x + 5, curr_y, text=op, anchor="nw", font=CONTENT_FONT)
+        curr_y += ATTR_LINE_HEIGHT
 
 def draw_relationship_line(canvas, relationship):
     """Draw a line between two classes with correct arrowheads"""
