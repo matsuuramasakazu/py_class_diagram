@@ -1,5 +1,6 @@
 import unittest
 import json
+import re
 import persistence
 from model import UMLDiagram, UMLClass
 from editor_canvas import MERMAID_NAME_REGEX
@@ -27,7 +28,6 @@ class TestValidation(unittest.TestCase):
             persistence.load_diagram(mermaid_str, layout_json_str)
 
     def test_mermaid_name_regex(self):
-        import re
         regex = MERMAID_NAME_REGEX
         self.assertTrue(re.match(regex, "MyClass"))
         self.assertTrue(re.match(regex, "_InternalClass"))

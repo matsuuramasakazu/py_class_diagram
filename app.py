@@ -75,7 +75,9 @@ class UMLApp:
             self.canvas.set_mode(InteractionMode.CREATE_RELATIONSHIP, rel_type)
 
     def add_class(self):
-        new_class = UMLClass(name="NewClass", x=100, y=100)
+        offset = len(self.diagram.classes) * 20
+        new_x, new_y = 100 + offset, 100 + offset
+        new_class = UMLClass(name="NewClass", x=new_x, y=new_y)
         self.diagram.add_class(new_class)
         self.canvas.redraw()
         # Trigger inline editing for the name
