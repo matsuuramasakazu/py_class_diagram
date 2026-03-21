@@ -24,7 +24,6 @@ class UMLApp:
         # Setup keyboard shortcuts
         self.root.bind("<Delete>", self.on_delete_key)
         self.root.bind("<Control-s>", self.on_ctrl_s)
-        self.root.bind("<Control-S>", self.on_ctrl_s)
 
     def create_toolbar(self):
         toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
@@ -96,13 +95,13 @@ class UMLApp:
             with open(self.current_file, "w") as f:
                 f.write(mermaid_content)
             
-            layout_file = self.current_file.rsplit('.', 1)[0] + ".json"
+            layout_file = os.path.splitext(self.current_file)[0] + ".json"
             with open(layout_file, "w") as f:
                 f.write(layout_content)
             
             self.root.title(f"UML Class Diagram Tool - {os.path.basename(self.current_file)}")
             messagebox.showinfo("Save", "Diagram saved successfully.")
-        except Exception as e:
+        except (OSError, IOError) as e:
             messagebox.showerror("Save Error", f"Failed to save diagram: {e}")
 
     def load_diagram(self):
@@ -114,21 +113,22 @@ class UMLApp:
             with open(file_path, "r") as f:
                 mermaid_content = f.read()
             
-            layout_file = file_path.rsplit('.', 1)[0] + ".json"
+            layout_file = os.path.splitext(file_path)[0] + ".json"
             layout_content = None
             if os.path.exists(layout_file):
                 with open(layout_file, "r") as f:
                     layout_content = f.read()
             
             new_diagram = persistence.load_diagram(mermaid_content, layout_content)
-            self.diagram.classes = new_diagram.classes
-            self.diagram.relationships = new_diagram.relationships
+            self.diagram.classes[:] = new_diagram.classes
+            self.diagram.relationships[:] = new_diagram.relationships
+            self.canvas.selected_classes = []
             
             self.current_file = file_path
             self.root.title(f"UML Class Diagram Tool - {os.path.basename(self.current_file)}")
             self.canvas.redraw()
             messagebox.showinfo("Load", "Diagram loaded successfully.")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             messagebox.showerror("Load Error", f"Failed to load diagram: {e}")
 
     def on_delete_key(self, event):

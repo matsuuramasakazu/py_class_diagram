@@ -1,6 +1,6 @@
 import tkinter as tk
 from enum import Enum, auto
-from typing import List, Optional, Tuple
+from typing import Optional
 from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
 import rendering
 
@@ -14,7 +14,7 @@ class UMLCanvas(tk.Canvas):
         self.diagram = diagram
         self.mode = InteractionMode.SELECT
         self.current_rel_type = RelationshipType.ASSOCIATION
-        self.selected_classes: List[UMLClass] = []
+        self.selected_classes: list[UMLClass] = []
         
         # Interaction state
         self.drag_start_x = 0
@@ -165,8 +165,14 @@ class UMLCanvas(tk.Canvas):
             return
             
         rel_y = event.y - clicked_class.y
-        header_h = 25
-        attr_h = max(20, len(clicked_class.attributes) * 15 + 5)
+        header_h = rendering.HEADER_HEIGHT
+        attr_h = rendering.get_attr_height(clicked_class)
+        # Apply the same constraints as rendering
+        minimal_ops_space = 20
+        h = clicked_class.height
+        attr_h = min(attr_h, h - header_h - minimal_ops_space)
+        if attr_h < 0:
+            attr_h = 0
         
         if rel_y < header_h:
             self.start_editing(clicked_class, "name", clicked_class.x, clicked_class.y, clicked_class.width, header_h)
@@ -185,14 +191,14 @@ class UMLCanvas(tk.Canvas):
         if part == "name":
             self.editor_widget = tk.Entry(self, font=("Arial", 10, "bold"), justify="center")
             self.editor_widget.insert(0, uml_class.name)
-            self.editor_widget.bind("<Return>", lambda e: self.commit_edit())
+            self.editor_widget.bind("<Return>", lambda _: self.commit_edit())
         else:
             self.editor_widget = tk.Text(self, font=("Arial", 9), padx=5, pady=5)
             content = "\n".join(getattr(uml_class, part))
             self.editor_widget.insert("1.0", content)
             
-        self.editor_widget.bind("<FocusOut>", lambda e: self.commit_edit())
-        self.editor_widget.bind("<Escape>", lambda e: self.cancel_edit())
+        self.editor_widget.bind("<FocusOut>", lambda _: self.commit_edit())
+        self.editor_widget.bind("<Escape>", lambda _: self.cancel_edit())
         
         self.create_window(x, y, window=self.editor_widget, anchor="nw", width=w, height=h)
         self.editor_widget.focus_set()

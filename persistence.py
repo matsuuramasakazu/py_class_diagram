@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Optional, Dict
+from typing import Optional
 from model import UMLDiagram, UMLClass, UMLRelationship, RelationshipType
 
 RELATIONSHIP_MAP = {
@@ -46,12 +46,28 @@ def to_layout_json(diagram: UMLDiagram) -> str:
 
 def load_diagram(mermaid_str: str, layout_json: Optional[str] = None) -> UMLDiagram:
     diagram = UMLDiagram()
-    class_map: Dict[str, UMLClass] = {}
+    class_map: dict[str, UMLClass] = {}
     
     # Layout parsing
     layout_data = {}
     if layout_json:
         layout_data = json.loads(layout_json)
+        
+    def _get_or_create_class(name: str) -> UMLClass:
+        if name in class_map:
+            return class_map[name]
+        
+        new_class = UMLClass(name=name)
+        if name in layout_data:
+            layout_info = layout_data[name]
+            new_class.x = layout_info.get("x", 0.0)
+            new_class.y = layout_info.get("y", 0.0)
+            new_class.width = layout_info.get("w", 150.0)
+            new_class.height = layout_info.get("h", 100.0)
+            
+        diagram.add_class(new_class)
+        class_map[name] = new_class
+        return new_class
     
     # Regex for class definitions
     # Matches: class Name { ... }
@@ -62,7 +78,7 @@ def load_diagram(mermaid_str: str, layout_json: Optional[str] = None) -> UMLDiag
         class_name = match.group(1)
         content = match.group(2).strip()
         
-        uml_class = UMLClass(name=class_name)
+        uml_class = _get_or_create_class(class_name)
         
         # Split content into lines and extract attributes/operations
         # Simple heuristic: if it ends with (), it's an operation
@@ -75,21 +91,12 @@ def load_diagram(mermaid_str: str, layout_json: Optional[str] = None) -> UMLDiag
             else:
                 uml_class.add_attribute(line)
         
-        # Apply layout if available
-        if class_name in layout_data:
-            l = layout_data[class_name]
-            uml_class.x = l.get("x", 0.0)
-            uml_class.y = l.get("y", 0.0)
-            uml_class.width = l.get("w", 150.0)
-            uml_class.height = l.get("h", 100.0)
-            
-        diagram.add_class(uml_class)
-        class_map[class_name] = uml_class
-        
     # Regex for relationships
     # Matches: Source Symbol Target : Label
     # Symbols: --|>, ..|>, --*, --o, -->, --
-    rel_symbols = "|".join([re.escape(s) for s in REVERSE_RELATIONSHIP_MAP.keys()])
+    # Sort by length descending to ensure longer symbols match first
+    sorted_symbols = sorted(REVERSE_RELATIONSHIP_MAP.keys(), key=len, reverse=True)
+    rel_symbols = "|".join([re.escape(s) for s in sorted_symbols])
     rel_regex = re.compile(rf"(\w+)\s+({rel_symbols})\s+(\w+)(?:\s*:\s*\w+)?")
     
     for match in rel_regex.finditer(mermaid_str):
@@ -97,30 +104,8 @@ def load_diagram(mermaid_str: str, layout_json: Optional[str] = None) -> UMLDiag
         symbol = match.group(2)
         target_name = match.group(3)
         
-        source = class_map.get(source_name)
-        target = class_map.get(target_name)
-        
-        if not source:
-            source = UMLClass(name=source_name)
-            if source_name in layout_data:
-                l = layout_data[source_name]
-                source.x = l.get("x", 0.0)
-                source.y = l.get("y", 0.0)
-                source.width = l.get("w", 150.0)
-                source.height = l.get("h", 100.0)
-            diagram.add_class(source)
-            class_map[source_name] = source
-            
-        if not target:
-            target = UMLClass(name=target_name)
-            if target_name in layout_data:
-                l = layout_data[target_name]
-                target.x = l.get("x", 0.0)
-                target.y = l.get("y", 0.0)
-                target.width = l.get("w", 150.0)
-                target.height = l.get("h", 100.0)
-            diagram.add_class(target)
-            class_map[target_name] = target
+        source = _get_or_create_class(source_name)
+        target = _get_or_create_class(target_name)
             
         rel_type = REVERSE_RELATIONSHIP_MAP.get(symbol, RelationshipType.ASSOCIATION)
         relationship = UMLRelationship(type=rel_type, source=source, target=target)

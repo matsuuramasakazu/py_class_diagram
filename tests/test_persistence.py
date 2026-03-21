@@ -92,7 +92,8 @@ class TestPersistence(unittest.TestCase):
         
         for t in types:
             rel = UMLRelationship(type=t, source=c1, target=c2)
-            diag.relationships = [rel]
+            diag.relationships.clear()
+            diag.add_relationship(rel)
             mermaid = to_mermaid(diag)
             loaded = load_diagram(mermaid)
             self.assertEqual(loaded.relationships[0].type, t)

@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, patch
 import tkinter as tk
 from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
 from editor_canvas import UMLCanvas, InteractionMode
@@ -107,6 +107,41 @@ class TestEditorCanvas(unittest.TestCase):
         rel = self.diag.relationships[0]
         self.assertEqual(rel.source, self.c1)
         self.assertEqual(rel.target, self.c2)
+
+    @patch('editor_canvas.tk.Entry')
+    @patch('editor_canvas.tk.Text')
+    def test_inline_editing(self, mock_text, mock_entry):
+        mock_entry_instance = MagicMock()
+        mock_entry.return_value = mock_entry_instance
+        mock_text_instance = MagicMock()
+        mock_text.return_value = mock_text_instance
+
+        # Select c1 for editing Name
+        event = MagicMock()
+        event.x = 50
+        event.y = 10 # click header
+        
+        self.canvas.on_double_click(event)
+        
+        # Verify editor_widget exists and insert was called with "A"
+        self.assertIsNotNone(self.canvas.editor_widget)
+        mock_entry_instance.insert.assert_called_with(0, "A")
+        
+        # Change text and commit
+        mock_entry_instance.get.return_value = "NewClassName"
+        self.canvas.commit_edit()
+        
+        self.assertEqual(self.c1.name, "NewClassName")
+        self.assertIsNone(self.canvas.editor_widget)
+        
+        # Test cancel edit for attributes
+        event.x = 50
+        event.y = 40 # click attributes
+        self.canvas.on_double_click(event)
+        
+        self.assertIsNotNone(self.canvas.editor_widget)
+        self.canvas.cancel_edit()
+        self.assertIsNone(self.canvas.editor_widget)
 
 if __name__ == '__main__':
     unittest.main()

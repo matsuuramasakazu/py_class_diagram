@@ -55,7 +55,7 @@ class UMLDiagram:
         if uml_class in self.classes:
             self.classes.remove(uml_class)
             # Also remove associated relationships
-            self.relationships = [
+            self.relationships[:] = [
                 r for r in self.relationships 
                 if r.source != uml_class and r.target != uml_class
             ]
