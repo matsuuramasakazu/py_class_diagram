@@ -87,31 +87,41 @@ def save_to_file(diagram: UMLDiagram, file_path: str, title: str = "Class Diagra
 def deserialize(file_content: str) -> UMLDiagram:
     """Deserialize a UMLDiagram from the 3-section Markdown format.
     
-    Extracts the Mermaid section and the JSON data section using regex,
-    then reconstructs the UMLDiagram with layout information.
-    Falls back to (0, 0) placement for classes missing layout data.
+    Extracts the correct JSON data section and its preceding Mermaid section.
     
     Raises:
-        ValueError: If the Mermaid section cannot be found in the content.
+        ValueError: If a valid Mermaid classDiagram section cannot be found.
     """
-    # Extract Mermaid section
-    mermaid_match = re.search(r"```mermaid\s+(.*?)\s+```", file_content, re.DOTALL)
-    if not mermaid_match:
-        raise ValueError("Mermaid section not found in file content.")
-    mermaid_str = mermaid_match.group(1)
-    
-    # Extract JSON data section (HTML comment)
     layout_data = {}
-    json_match = re.search(r"<!--\s*(\{.*?\})\s*-->", file_content, re.DOTALL)
-    if json_match:
+    tool_comment_start = len(file_content)
+    
+    # 1. Scan for the correct tool JSON comment block
+    for match in re.finditer(r"<!--\s*(\{.*?\})\s*-->", file_content, re.DOTALL):
         try:
-            parsed = json.loads(json_match.group(1))
-            if isinstance(parsed, dict):
+            parsed = json.loads(match.group(1))
+            if isinstance(parsed, dict) and parsed.get("tool") == _TOOL_IDENTIFIER:
                 layout_data = parsed.get("layout", {})
                 if not isinstance(layout_data, dict):
                     layout_data = {}
+                tool_comment_start = match.start()
+                break  # Pick the first valid tool comment matching our identifier
         except json.JSONDecodeError:
-            layout_data = {}
+            continue
+
+    # 2. Extract Mermaid section containing 'classDiagram' BEFORE the tool comment
+    # Use re.finditer to find all mermaid blocks and pick the one closest to the tool comment
+    mermaid_matches = []
+    for match in re.finditer(r"```mermaid\s*(.*?)\s*```", file_content[:tool_comment_start], re.DOTALL):
+        content = match.group(1).strip()
+        # Look for 'classDiagram' at the start or on a new line (with word boundary)
+        if re.search(r"(?:^|\n)\s*classDiagram\b", content):
+            mermaid_matches.append(content)
+    
+    if not mermaid_matches:
+        raise ValueError("Mermaid classDiagram section not found in file content.")
+    
+    # Pick the last classDiagram block before the tool comment (in case there are multiple)
+    mermaid_str = mermaid_matches[-1]
     
     return _parse_mermaid(mermaid_str, layout_data)
 
@@ -135,11 +145,17 @@ def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
         new_class = UMLClass(name=name)
         if name in layout_data:
             layout_info = layout_data[name]
-            new_class.x = float(layout_info.get("x", 0.0))
-            new_class.y = float(layout_info.get("y", 0.0))
-            new_class.width = float(layout_info.get("w", 150.0))
-            new_class.height = float(layout_info.get("h", 100.0))
-        # Fallback: classes not in layout_data stay at default (0.0, 0.0)
+            if isinstance(layout_info, dict):
+                def _coerce_float(value: object, default: float) -> float:
+                    try:
+                        return float(value) # type: ignore
+                    except (TypeError, ValueError):
+                        return default
+
+                new_class.x = _coerce_float(layout_info.get("x"), new_class.x)
+                new_class.y = _coerce_float(layout_info.get("y"), new_class.y)
+                new_class.width = _coerce_float(layout_info.get("w"), new_class.width)
+                new_class.height = _coerce_float(layout_info.get("h"), new_class.height)
             
         diagram.add_class(new_class)
         class_map[name] = new_class

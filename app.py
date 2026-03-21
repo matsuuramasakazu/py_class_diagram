@@ -97,22 +97,29 @@ class UMLApp:
         self.canvas.start_editing(new_class, "name", new_class.x, new_class.y, new_class.width, rendering.HEADER_HEIGHT)
 
     def save_diagram(self):
-        if not self.current_file:
+        if self.canvas.editor_widget and not self.canvas.commit_edit():
+            return
+
+        file_path = self.current_file
+        if not file_path:
             file_path = filedialog.asksaveasfilename(defaultextension=".md",
                                                      filetypes=[("Markdown files", "*.md"), ("All files", "*.*")])
             if not file_path:
                 return
-            self.current_file = file_path
 
-        title = os.path.splitext(os.path.basename(self.current_file))[0]
+        title = os.path.splitext(os.path.basename(file_path))[0]
         try:
-            persistence.save_to_file(self.diagram, self.current_file, title=title)
+            persistence.save_to_file(self.diagram, file_path, title=title)
+            self.current_file = file_path
             self.root.title(f"UML Class Diagram Tool - {os.path.basename(self.current_file)}")
             messagebox.showinfo("Save", "Diagram saved successfully.")
         except OSError as e:
             messagebox.showerror("Save Error", f"Failed to save diagram: {e}")
 
     def load_diagram(self):
+        if self.canvas.editor_widget and not self.canvas.commit_edit():
+            return
+
         file_path = filedialog.askopenfilename(filetypes=[("Markdown files", "*.md"), ("All files", "*.*")])
         if not file_path:
             return

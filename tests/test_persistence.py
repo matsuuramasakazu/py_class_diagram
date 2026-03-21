@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+import re
 import tempfile
 from model import UMLDiagram, UMLClass, UMLRelationship, RelationshipType
 from persistence import (
@@ -151,7 +152,7 @@ class TestSerialize(unittest.TestCase):
 
     def test_serialize_json_has_correct_coordinates(self):
         content = serialize(self.diagram)
-        json_match = __import__("re").search(r"<!--\s*(\{.*?\})\s*-->", content, __import__("re").DOTALL)
+        json_match = re.search(r"<!--\s*(\{.*?\})\s*-->", content, re.DOTALL)
         self.assertIsNotNone(json_match)
         data = json.loads(json_match.group(1))
         layout = data["layout"]
@@ -213,12 +214,11 @@ class TestDeserialize(unittest.TestCase):
         """JSONに存在しないクラスはデフォルト座標（0,0）にフォールバックすること"""
         content = serialize(self.diagram)
         # JSONのClassBの座標データを削除したコンテンツを作成
-        import re as re_mod
         def remove_classb_from_json(m):
             data = json.loads(m.group(1))
             data["layout"].pop("ClassB", None)
             return f"<!--\n{json.dumps(data, indent=4)}\n-->"
-        content = re_mod.sub(r"<!--\s*(\{.*?\})\s*-->", remove_classb_from_json, content, flags=re_mod.DOTALL)
+        content = re.sub(r"<!--\s*(\{.*?\})\s*-->", remove_classb_from_json, content, flags=re.DOTALL)
         loaded = deserialize(content)
         loaded_b = next(c for c in loaded.classes if c.name == "ClassB")
         self.assertEqual(loaded_b.x, 0.0)
@@ -236,7 +236,7 @@ class TestDeserialize(unittest.TestCase):
         content = (
             "# Title\n\n"
             "```mermaid\nclassDiagram\n    class ClassD {\n    }\n```\n\n"
-            "<!-- not-valid-json -->\n"
+            "<!-- {\"layout\": } -->\n"
         )
         loaded = deserialize(content)
         self.assertEqual(len(loaded.classes), 1)
