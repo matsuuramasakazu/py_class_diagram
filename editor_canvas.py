@@ -195,9 +195,8 @@ class UMLCanvas(tk.Canvas):
             self.start_editing(clicked_class, "operations", clicked_class.x, clicked_class.y + HEADER_HEIGHT + attr_h, clicked_class.width, clicked_class.height - (HEADER_HEIGHT + attr_h))
 
     def start_editing(self, uml_class, part, x, y, w, h):
-        if self.editor_widget:
-            if not self.commit_edit():
-                return
+        if self.editor_widget and not self.commit_edit():
+            return
             
         self.editing_class = uml_class
         self.editing_part = part
