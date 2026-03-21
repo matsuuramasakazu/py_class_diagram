@@ -9,3 +9,4 @@ trigger: always_on
 - 実施計画（implementation_plan.md）やタスクリスト（task.md）を含むすべての計画ドキュメントは、常に日本語で出力してください。
 - 単体テストは標準ライブラリのunittestを使ってください。
 - Powershellでは連続したコマンドを1行で実行するときの連結記号は && ではなく ; を使ってください。
+- コマンドターミナルはPowershellなのでgrepは使わない。
