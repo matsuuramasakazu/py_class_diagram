@@ -75,6 +75,9 @@ class UMLApp:
             self.canvas.set_mode(InteractionMode.CREATE_RELATIONSHIP, rel_type)
 
     def add_class(self):
+        if not self.canvas.commit_edit():
+            return
+            
         offset = len(self.diagram.classes) * 20
         new_x, new_y = 100 + offset, 100 + offset
         

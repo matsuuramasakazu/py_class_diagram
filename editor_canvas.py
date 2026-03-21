@@ -38,6 +38,7 @@ class UMLCanvas(tk.Canvas):
         
         # Inline editing state
         self.editor_widget: tk.Widget | None = None
+        self.editor_window_id: int | None = None
         self.editing_class: UMLClass | None = None
         self.editing_part: str | None = None
         self.original_value: Any = None # Store value before editing
@@ -195,7 +196,8 @@ class UMLCanvas(tk.Canvas):
 
     def start_editing(self, uml_class, part, x, y, w, h):
         if self.editor_widget:
-            self.commit_edit()
+            if not self.commit_edit():
+                return
             
         self.editing_class = uml_class
         self.editing_part = part
@@ -224,7 +226,7 @@ class UMLCanvas(tk.Canvas):
         self.editor_widget.bind("<FocusOut>", lambda _: self.commit_edit())
         self.editor_widget.bind("<Escape>", lambda _: self.cancel_edit())
         
-        self.create_window(x, y, window=self.editor_widget, anchor="nw", width=w, height=h)
+        self.editor_window_id = self.create_window(x, y, window=self.editor_widget, anchor="nw", width=w, height=h)
         self.editor_widget.focus_set()
         if part == "name":
             self.editor_widget.selection_range(0, tk.END)
@@ -254,7 +256,8 @@ class UMLCanvas(tk.Canvas):
         line_count = int(float(self.editor_widget.index(tk.END)) - 1.0)
         new_h = (line_count + 1) * ATTR_LINE_HEIGHT + 10
         # Update distance of window from top if needed, but here we just update height
-        self.itemconfigure(self.find_withtag("window"), height=new_h)
+        if self.editor_window_id:
+            self.itemconfigure(self.editor_window_id, height=new_h)
 
     def commit_edit(self, event=None) -> bool:
         if not self.editor_widget or not self.editing_class:
@@ -271,8 +274,8 @@ class UMLCanvas(tk.Canvas):
                 
                 # Combined validation
                 error_message = None
-                if not new_value: # Allow empty name to clear it, but it will be validated by regex
-                    pass # Handled by regex below if it doesn't match
+                if not new_value:
+                    error_message = "Class name cannot be empty."
                 elif not re.match(MERMAID_NAME_REGEX, new_value):
                     error_message = "Class name must start with a letter or underscore and contain only alphanumeric characters."
                 elif any(c.name == new_value for c in self.diagram.classes if c != self.editing_class):
