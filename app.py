@@ -97,45 +97,35 @@ class UMLApp:
         self.canvas.start_editing(new_class, "name", new_class.x, new_class.y, new_class.width, rendering.HEADER_HEIGHT)
 
     def save_diagram(self):
-        if not self.current_file:
-            file_path = filedialog.asksaveasfilename(defaultextension=".mermaid",
-                                                     filetypes=[("Mermaid files", "*.mermaid"), ("All files", "*.*")])
+        if self.canvas.editor_widget and not self.canvas.commit_edit():
+            return
+
+        file_path = self.current_file
+        if not file_path:
+            file_path = filedialog.asksaveasfilename(defaultextension=".md",
+                                                     filetypes=[("Markdown files", "*.md"), ("All files", "*.*")])
             if not file_path:
                 return
-            self.current_file = file_path
 
-        mermaid_content = persistence.to_mermaid(self.diagram)
-        layout_content = persistence.to_layout_json(self.diagram)
-
+        title = os.path.splitext(os.path.basename(file_path))[0]
         try:
-            with open(self.current_file, "w", encoding="utf-8") as f:
-                f.write(mermaid_content)
-            
-            layout_file = os.path.splitext(self.current_file)[0] + ".json"
-            with open(layout_file, "w", encoding="utf-8") as f:
-                f.write(layout_content)
-            
+            persistence.save_to_file(self.diagram, file_path, title=title)
+            self.current_file = file_path
             self.root.title(f"UML Class Diagram Tool - {os.path.basename(self.current_file)}")
             messagebox.showinfo("Save", "Diagram saved successfully.")
         except OSError as e:
             messagebox.showerror("Save Error", f"Failed to save diagram: {e}")
 
     def load_diagram(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Mermaid files", "*.mermaid"), ("All files", "*.*")])
+        if self.canvas.editor_widget and not self.canvas.commit_edit():
+            return
+
+        file_path = filedialog.askopenfilename(filetypes=[("Markdown files", "*.md"), ("All files", "*.*")])
         if not file_path:
             return
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                mermaid_content = f.read()
-            
-            layout_file = os.path.splitext(file_path)[0] + ".json"
-            layout_content = None
-            if os.path.exists(layout_file):
-                with open(layout_file, "r", encoding="utf-8") as f:
-                    layout_content = f.read()
-            
-            new_diagram = persistence.load_diagram(mermaid_content, layout_content)
+            new_diagram = persistence.load_from_file(file_path)
             self.diagram.classes[:] = new_diagram.classes
             self.diagram.relationships[:] = new_diagram.relationships
             self.canvas.selected_classes = []
