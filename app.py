@@ -87,7 +87,7 @@ class UMLApp:
             counter += 1
             
         new_class = UMLClass(name=name, x=new_x, y=new_y)
-        self.canvas._update_class_size(new_class)
+        self.canvas.update_class_size(new_class)
         self.diagram.add_class(new_class)
         self.canvas.redraw()
         # Trigger inline editing for the name

@@ -3,6 +3,7 @@ from tkinter import messagebox
 from enum import Enum, auto
 import re
 import rendering
+from typing import Any
 import tkinter.font as tkfont
 from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
 from rendering import (
@@ -39,7 +40,7 @@ class UMLCanvas(tk.Canvas):
         self.editor_widget: tk.Widget | None = None
         self.editing_class: UMLClass | None = None
         self.editing_part: str | None = None
-        self.original_value: any = None # Store value before editing
+        self.original_value: Any = None # Store value before editing
         
         # Binds
         self.bind("<Button-1>", self.on_button_press)
@@ -228,25 +229,22 @@ class UMLCanvas(tk.Canvas):
         if part == "name":
             self.editor_widget.selection_range(0, tk.END)
 
-    def _update_class_size(self, uml_class):
-        """Calculate and update uml_class width and height based on actual font measurements."""
+    def update_class_size(self, uml_class: UMLClass):
+        """Calculate and update the optimal size for a class box based on its content."""
         header_f = tkfont.Font(family=HEADER_FONT[0], size=HEADER_FONT[1], weight=HEADER_FONT[2])
         content_f = tkfont.Font(family=CONTENT_FONT[0], size=CONTENT_FONT[1])
+
+        name_width = header_f.measure(uml_class.name)
+        content_lines = uml_class.attributes + uml_class.operations
+        max_content_width = max((content_f.measure(line) for line in content_lines), default=0)
         
-        # Calculate width
-        # Padding: 10 pixels on each side (total 20)
-        max_w = header_f.measure(uml_class.name) + 20
-        
-        for attr in uml_class.attributes:
-            max_w = max(max_w, content_f.measure(attr) + 20)
-        for op in uml_class.operations:
-            max_w = max(max_w, content_f.measure(op) + 20)
-            
+        # Max of all widths + padding
+        max_w = max(name_width, max_content_width) + 20
         uml_class.width = max(MIN_WIDTH, max_w)
         
-        # Calculate height
-        attr_h = get_attr_height(uml_class)
-        ops_h = get_ops_height(uml_class)
+        # Height: Header + Attr area + Ops area
+        attr_h = rendering.get_attr_height(uml_class)
+        ops_h = rendering.get_ops_height(uml_class)
         uml_class.height = HEADER_HEIGHT + attr_h + ops_h
 
     def update_editor_height(self, event=None):
@@ -263,31 +261,27 @@ class UMLCanvas(tk.Canvas):
             return True
             
         if self.editing_part == "name":
-            new_value = self.editor_widget.get().strip()
-            if not new_value:
-                self._update_class_size(self.editing_class)
-                self.cleanup_editor()
-                self.redraw()
-                return True
-
             if self._is_committing:
                 return False
             self._is_committing = True
 
             try:
                 # Mermaid compatible: Alphanumeric and underscores, not starting with a digit
-                if not re.match(MERMAID_NAME_REGEX, new_value):
-                    self.editor_widget.unbind("<FocusOut>")
-                    messagebox.showerror("Validation Error", 
-                                       "Class name must start with a letter or underscore and contain only alphanumeric characters.")
-                    if self.editor_widget:
-                        self.editor_widget.bind("<FocusOut>", lambda _: self.commit_edit())
-                    return False # Stay in edit mode
+                new_value = self.editor_widget.get().strip()
+                
+                # Combined validation
+                error_message = None
+                if not new_value: # Allow empty name to clear it, but it will be validated by regex
+                    pass # Handled by regex below if it doesn't match
+                elif not re.match(MERMAID_NAME_REGEX, new_value):
+                    error_message = "Class name must start with a letter or underscore and contain only alphanumeric characters."
+                elif any(c.name == new_value for c in self.diagram.classes if c != self.editing_class):
+                    error_message = f"A class with name '{new_value}' already exists."
 
-                # Uniqueness check
-                if any(c.name == new_value for c in self.diagram.classes if c != self.editing_class):
+                if error_message:
+                    # Unbind FocusOut to avoid recursive calls while showing dialog
                     self.editor_widget.unbind("<FocusOut>")
-                    messagebox.showerror("Validation Error", f"A class with name '{new_value}' already exists.")
+                    messagebox.showerror("Validation Error", error_message)
                     if self.editor_widget:
                         self.editor_widget.bind("<FocusOut>", lambda _: self.commit_edit())
                     return False # Stay in edit mode
@@ -296,25 +290,19 @@ class UMLCanvas(tk.Canvas):
             finally:
                 self._is_committing = False
         else:
-            if self._is_committing:
-                return False
-            self._is_committing = True
-            try:
-                # For Text widget, we need to handle multi-line input
-                new_value = self.editor_widget.get("1.0", tk.END).strip()
-                lines = [line.strip() for line in new_value.split("\n") if line.strip()]
-                # Remove duplicates while preserving order
-                seen = set()
-                unique_lines = []
-                for line in lines:
-                    if line not in seen:
-                        seen.add(line)
-                        unique_lines.append(line)
-                setattr(self.editing_class, self.editing_part, unique_lines)
-            finally:
-                self._is_committing = False
+            # For Text widget, we need to handle multi-line input
+            new_value = self.editor_widget.get("1.0", tk.END).strip()
+            lines = [line.strip() for line in new_value.split("\n") if line.strip()]
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_lines = []
+            for line in lines:
+                if line not in seen:
+                    seen.add(line)
+                    unique_lines.append(line)
+            setattr(self.editing_class, self.editing_part, unique_lines)
             
-        self._update_class_size(self.editing_class)
+        self.update_class_size(self.editing_class)
         self.cleanup_editor()
         self.redraw()
         return True

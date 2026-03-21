@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
-import math
 
 # No typing imports needed for built-in generics
 
