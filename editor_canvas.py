@@ -1,6 +1,8 @@
 import tkinter as tk
+from tkinter import messagebox
 from enum import Enum, auto
-from typing import Optional
+import re
+# No typing imports needed for built-in generics
 from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType
 import rendering
 
@@ -19,15 +21,15 @@ class UMLCanvas(tk.Canvas):
         # Interaction state
         self.drag_start_x = 0
         self.drag_start_y = 0
-        self.dragging_class: Optional[UMLClass] = None
-        self.rubber_band_id: Optional[int] = None
-        self.temp_line_id: Optional[int] = None
-        self.rel_source_class: Optional[UMLClass] = None
+        self.dragging_class: UMLClass | None = None
+        self.rubber_band_id: int | None = None
+        self.temp_line_id: int | None = None
+        self.rel_source_class: UMLClass | None = None
         
         # Inline editing state
-        self.editor_widget: Optional[tk.Widget] = None
-        self.editing_class: Optional[UMLClass] = None
-        self.editing_part: Optional[str] = None
+        self.editor_widget: tk.Widget | None = None
+        self.editing_class: UMLClass | None = None
+        self.editing_part: str | None = None
         
         # Binds
         self.bind("<Button-1>", self.on_button_press)
@@ -37,7 +39,7 @@ class UMLCanvas(tk.Canvas):
         
         self.redraw()
 
-    def set_mode(self, mode: InteractionMode, rel_type: Optional[RelationshipType] = None):
+    def set_mode(self, mode: InteractionMode, rel_type: RelationshipType | None = None):
         self.mode = mode
         if rel_type:
             self.current_rel_type = rel_type
@@ -61,7 +63,7 @@ class UMLCanvas(tk.Canvas):
                     outline="blue", width=2, dash=(4, 4)
                 )
 
-    def find_class_at(self, x, y) -> Optional[UMLClass]:
+    def find_class_at(self, x, y) -> UMLClass | None:
         for uml_class in reversed(self.diagram.classes):
             if (uml_class.x <= x <= uml_class.x + uml_class.width and
                 uml_class.y <= y <= uml_class.y + uml_class.height):
@@ -168,7 +170,7 @@ class UMLCanvas(tk.Canvas):
         header_h = rendering.HEADER_HEIGHT
         attr_h = rendering.get_attr_height(clicked_class)
         # Apply the same constraints as rendering
-        minimal_ops_space = 20
+        minimal_ops_space = rendering.MIN_COMPARTMENT_HEIGHT
         h = clicked_class.height
         attr_h = max(0, min(attr_h, h - header_h - minimal_ops_space))
         
@@ -209,8 +211,24 @@ class UMLCanvas(tk.Canvas):
             
         if self.editing_part == "name":
             new_value = self.editor_widget.get().strip()
-            if new_value:
-                self.editing_class.name = new_value
+            if not new_value:
+                self.cleanup_editor()
+                return
+
+            # Mermaid compatible: Alphanumeric and underscores, not starting with a digit
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", new_value):
+                messagebox.showerror("Validation Error", 
+                                   "Class name must start with a letter or underscore and contain only alphanumeric characters.")
+                self.cleanup_editor()
+                return
+
+            # Uniqueness check
+            if any(c.name == new_value for c in self.diagram.classes if c != self.editing_class):
+                messagebox.showerror("Validation Error", f"A class with name '{new_value}' already exists.")
+                self.cleanup_editor()
+                return
+
+            self.editing_class.name = new_value
         else:
             # For Text widget, we need to handle multi-line input
             new_value = self.editor_widget.get("1.0", tk.END).strip()

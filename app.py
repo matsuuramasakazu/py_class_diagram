@@ -78,7 +78,7 @@ class UMLApp:
         self.diagram.add_class(new_class)
         self.canvas.redraw()
         # Trigger inline editing for the name
-        self.canvas.start_editing(new_class, "name", new_class.x, new_class.y, new_class.width, 25)
+        self.canvas.start_editing(new_class, "name", new_class.x, new_class.y, new_class.width, rendering.HEADER_HEIGHT)
 
     def save_diagram(self):
         if not self.current_file:
@@ -92,11 +92,11 @@ class UMLApp:
         layout_content = persistence.to_layout_json(self.diagram)
 
         try:
-            with open(self.current_file, "w") as f:
+            with open(self.current_file, "w", encoding="utf-8") as f:
                 f.write(mermaid_content)
             
             layout_file = os.path.splitext(self.current_file)[0] + ".json"
-            with open(layout_file, "w") as f:
+            with open(layout_file, "w", encoding="utf-8") as f:
                 f.write(layout_content)
             
             self.root.title(f"UML Class Diagram Tool - {os.path.basename(self.current_file)}")
@@ -110,13 +110,13 @@ class UMLApp:
             return
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 mermaid_content = f.read()
             
             layout_file = os.path.splitext(file_path)[0] + ".json"
             layout_content = None
             if os.path.exists(layout_file):
-                with open(layout_file, "r") as f:
+                with open(layout_file, "r", encoding="utf-8") as f:
                     layout_content = f.read()
             
             new_diagram = persistence.load_diagram(mermaid_content, layout_content)

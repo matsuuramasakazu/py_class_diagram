@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Optional
+# No typing imports needed for built-in generics
 from model import UMLDiagram, UMLClass, UMLRelationship, RelationshipType
 
 RELATIONSHIP_MAP = {
@@ -42,7 +42,7 @@ def to_layout_json(diagram: UMLDiagram) -> str:
         }
     return json.dumps(layout, indent=4)
 
-def load_diagram(mermaid_str: str, layout_json: Optional[str] = None) -> UMLDiagram:
+def load_diagram(mermaid_str: str, layout_json: str | None = None) -> UMLDiagram:
     diagram = UMLDiagram()
     class_map: dict[str, UMLClass] = {}
     
@@ -50,6 +50,8 @@ def load_diagram(mermaid_str: str, layout_json: Optional[str] = None) -> UMLDiag
     layout_data = {}
     if layout_json:
         layout_data = json.loads(layout_json)
+        if not isinstance(layout_data, dict):
+            raise ValueError("Layout JSON must be a dictionary mapping class names to position objects.")
         
     def _get_or_create_class(name: str) -> UMLClass:
         if name in class_map:

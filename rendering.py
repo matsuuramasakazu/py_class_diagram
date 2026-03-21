@@ -5,9 +5,10 @@ from model import UMLClass, UMLRelationship, RelationshipType
 HEADER_HEIGHT = 25
 ATTR_LINE_HEIGHT = 15
 ATTR_PADDING = 5
+MIN_COMPARTMENT_HEIGHT = 20
 
 def get_attr_height(uml_class):
-    return max(20, len(uml_class.attributes) * ATTR_LINE_HEIGHT + ATTR_PADDING)
+    return max(MIN_COMPARTMENT_HEIGHT, len(uml_class.attributes) * ATTR_LINE_HEIGHT + ATTR_PADDING)
 
 def get_angle(x1, y1, x2, y2):
     """Calculate angle of line from (x1, y1) to (x2, y2)"""
