@@ -1,0 +1,8 @@
+﻿python : Python 
+発生場所 行:1 文字:1
++ python -m unittest discover tests > test_output_utf8.txt 2>&1 ; [Syst ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Python :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+

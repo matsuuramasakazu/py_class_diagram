@@ -101,7 +101,7 @@ class UMLApp:
             
             self.root.title(f"UML Class Diagram Tool - {os.path.basename(self.current_file)}")
             messagebox.showinfo("Save", "Diagram saved successfully.")
-        except (OSError, IOError) as e:
+        except OSError as e:
             messagebox.showerror("Save Error", f"Failed to save diagram: {e}")
 
     def load_diagram(self):
@@ -132,12 +132,13 @@ class UMLApp:
             messagebox.showerror("Load Error", f"Failed to load diagram: {e}")
 
     def on_delete_key(self, event):
-        if self.canvas.selected_classes:
-            if messagebox.askyesno("Delete", f"Delete {len(self.canvas.selected_classes)} selected class(es)?"):
-                for uml_class in list(self.canvas.selected_classes):
-                    self.diagram.remove_class(uml_class)
-                self.canvas.selected_classes = []
-                self.canvas.redraw()
+        if self.canvas.selected_classes and messagebox.askyesno(
+            "Delete", f"Delete {len(self.canvas.selected_classes)} selected class(es)?"
+        ):
+            for uml_class in list(self.canvas.selected_classes):
+                self.diagram.remove_class(uml_class)
+            self.canvas.selected_classes = []
+            self.canvas.redraw()
 
     def on_ctrl_s(self, event):
         self.save_diagram()

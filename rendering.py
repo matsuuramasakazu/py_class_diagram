@@ -102,9 +102,7 @@ def draw_class_box(canvas, uml_class):
     minimal_ops_space = 20
     
     # Constrain attr_h so it doesn't exceed total height
-    attr_h = min(calculated_attr_h, h - header_h - minimal_ops_space)
-    if attr_h < 0:
-        attr_h = 0
+    attr_h = max(0, min(calculated_attr_h, h - header_h - minimal_ops_space))
     
     # Ensure they don't exceed total height or just draw lines
     # For a basic implementation, we just draw the lines at these offsets
@@ -149,7 +147,7 @@ def draw_relationship_line(canvas, relationship):
     x2, y2 = target_point
     
     dash = None
-    if rel_type in [RelationshipType.DEPENDENCY, RelationshipType.REALIZATION]:
+    if rel_type in (RelationshipType.DEPENDENCY, RelationshipType.REALIZATION):
         dash = (5, 5)
         
     canvas.create_line(x1, y1, x2, y2, dash=dash, fill="black")

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List, Optional
+# No typing imports needed for built-in generics
 
 class RelationshipType(Enum):
     GENERALIZATION = auto()
@@ -13,8 +13,8 @@ class RelationshipType(Enum):
 @dataclass
 class UMLClass:
     name: str
-    attributes: List[str] = field(default_factory=list)
-    operations: List[str] = field(default_factory=list)
+    attributes: list[str] = field(default_factory=list)
+    operations: list[str] = field(default_factory=list)
     x: float = 0.0
     y: float = 0.0
     width: float = 150.0
@@ -44,8 +44,8 @@ class UMLRelationship:
 
 @dataclass
 class UMLDiagram:
-    classes: List[UMLClass] = field(default_factory=list)
-    relationships: List[UMLRelationship] = field(default_factory=list)
+    classes: list[UMLClass] = field(default_factory=list)
+    relationships: list[UMLRelationship] = field(default_factory=list)
 
     def add_class(self, uml_class: UMLClass) -> None:
         if uml_class not in self.classes:
@@ -57,7 +57,7 @@ class UMLDiagram:
             # Also remove associated relationships
             self.relationships[:] = [
                 r for r in self.relationships 
-                if r.source != uml_class and r.target != uml_class
+                if uml_class not in (r.source, r.target)
             ]
 
     def add_relationship(self, relationship: UMLRelationship) -> None:

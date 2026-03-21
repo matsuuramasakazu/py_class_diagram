@@ -170,9 +170,7 @@ class UMLCanvas(tk.Canvas):
         # Apply the same constraints as rendering
         minimal_ops_space = 20
         h = clicked_class.height
-        attr_h = min(attr_h, h - header_h - minimal_ops_space)
-        if attr_h < 0:
-            attr_h = 0
+        attr_h = max(0, min(attr_h, h - header_h - minimal_ops_space))
         
         if rel_y < header_h:
             self.start_editing(clicked_class, "name", clicked_class.x, clicked_class.y, clicked_class.width, header_h)
@@ -217,7 +215,14 @@ class UMLCanvas(tk.Canvas):
             # For Text widget, we need to handle multi-line input
             new_value = self.editor_widget.get("1.0", tk.END).strip()
             lines = [line.strip() for line in new_value.split("\n") if line.strip()]
-            setattr(self.editing_class, self.editing_part, lines)
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_lines = []
+            for line in lines:
+                if line not in seen:
+                    seen.add(line)
+                    unique_lines.append(line)
+            setattr(self.editing_class, self.editing_part, unique_lines)
             
         self.cleanup_editor()
         self.redraw()

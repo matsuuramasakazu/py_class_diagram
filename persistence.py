@@ -20,10 +20,8 @@ def to_mermaid(diagram: UMLDiagram) -> str:
     # Add classes
     for uml_class in diagram.classes:
         lines.append(f"    class {uml_class.name} {{")
-        for attr in uml_class.attributes:
-            lines.append(f"        {attr}")
-        for op in uml_class.operations:
-            lines.append(f"        {op}")
+        lines.extend(f"        {attr}" for attr in uml_class.attributes)
+        lines.extend(f"        {op}" for op in uml_class.operations)
         lines.append("    }")
     
     # Add relationships
