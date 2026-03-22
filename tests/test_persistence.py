@@ -38,12 +38,13 @@ class TestToMermaid(unittest.TestCase):
     def test_to_layout_json(self):
         layout_json = to_layout_json(self.diagram)
         data = json.loads(layout_json)
-        self.assertIn("ClassA", data)
-        self.assertEqual(data["ClassA"]["x"], 10)
-        self.assertEqual(data["ClassA"]["y"], 20)
-        self.assertEqual(data["ClassA"]["w"], 100)
-        self.assertEqual(data["ClassA"]["h"], 80)
-        self.assertIn("ClassB", data)
+        self.assertIn("classes", data)
+        self.assertIn("ClassA", data["classes"])
+        self.assertEqual(data["classes"]["ClassA"]["x"], 10)
+        self.assertEqual(data["classes"]["ClassA"]["y"], 20)
+        self.assertEqual(data["classes"]["ClassA"]["w"], 100)
+        self.assertEqual(data["classes"]["ClassA"]["h"], 80)
+        self.assertIn("ClassB", data["classes"])
 
 
 class TestLegacyLoadDiagram(unittest.TestCase):
@@ -148,6 +149,7 @@ class TestSerialize(unittest.TestCase):
         self.assertIn("-->", content)
         self.assertIn('"tool": "py_class_diagram"', content)
         self.assertIn('"layout"', content)
+        self.assertIn('"classes"', content)
         self.assertIn('"ClassA"', content)
 
     def test_serialize_json_has_correct_coordinates(self):
@@ -156,10 +158,11 @@ class TestSerialize(unittest.TestCase):
         self.assertIsNotNone(json_match)
         data = json.loads(json_match.group(1))
         layout = data["layout"]
-        self.assertEqual(layout["ClassA"]["x"], 10.0)
-        self.assertEqual(layout["ClassA"]["y"], 20.0)
-        self.assertEqual(layout["ClassA"]["w"], 100.0)
-        self.assertEqual(layout["ClassA"]["h"], 80.0)
+        self.assertIn("classes", layout)
+        self.assertEqual(layout["classes"]["ClassA"]["x"], 10.0)
+        self.assertEqual(layout["classes"]["ClassA"]["y"], 20.0)
+        self.assertEqual(layout["classes"]["ClassA"]["w"], 100.0)
+        self.assertEqual(layout["classes"]["ClassA"]["h"], 80.0)
 
 
 class TestDeserialize(unittest.TestCase):
@@ -216,7 +219,11 @@ class TestDeserialize(unittest.TestCase):
         # JSONのClassBの座標データを削除したコンテンツを作成
         def remove_classb_from_json(m):
             data = json.loads(m.group(1))
-            data["layout"].pop("ClassB", None)
+            if "classes" in data["layout"]:
+                data["layout"]["classes"].pop("ClassB", None)
+            else:
+                 # Legacy format fallback (though serialize produces new format)
+                data["layout"].pop("ClassB", None)
             return f"<!--\n{json.dumps(data, indent=4)}\n-->"
         content = re.sub(r"<!--\s*(\{.*?\})\s*-->", remove_classb_from_json, content, flags=re.DOTALL)
         loaded = deserialize(content)
