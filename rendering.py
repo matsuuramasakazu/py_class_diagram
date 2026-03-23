@@ -113,11 +113,12 @@ def draw_relationship_line(canvas, relationship):
 
     # 2. Control Points
     p1 = relationship.source_handle
+    if not p1:
+        p1 = p0
+        
     p2 = relationship.target_handle
-
-    # Safety fallback
-    if not p1: p1 = p0
-    if not p2: p2 = p3
+    if not p2:
+        p2 = p3
 
     # 3. Generate Bezier path
     points = []

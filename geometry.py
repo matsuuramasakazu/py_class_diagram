@@ -1,7 +1,7 @@
 import math
-from typing import Tuple, Optional, List
+from typing import Optional
 
-Point = Tuple[float, float]
+Point = tuple[float, float]
 
 def distance(p1: Point, p2: Point) -> float:
     """Calculate Euclidean distance between two points."""
@@ -64,8 +64,8 @@ def line_intersection(p1: Point, p2: Point, p3: Point, p4: Point) -> Optional[Po
     x4, y4 = p4
 
     denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
-    if denom == 0:
-        return None  # Parallel
+    if abs(denom) < 1e-9:
+        return None  # Parallel or nearly parallel
 
     ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
     ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
@@ -76,7 +76,7 @@ def line_intersection(p1: Point, p2: Point, p3: Point, p4: Point) -> Optional[Po
         return (x, y)
     return None
 
-def get_rect_segments(x: float, y: float, w: float, h: float) -> List[Tuple[Point, Point]]:
+def get_rect_segments(x: float, y: float, w: float, h: float) -> list[tuple[Point, Point]]:
     """Return the 4 segments of a rectangle: Top, Right, Bottom, Left."""
     tl = (x, y)
     tr = (x + w, y)
@@ -119,8 +119,8 @@ def find_bezier_rect_intersection(p0: Point, p1: Point, p2: Point, p3: Point,
 def get_rect_center(x: float, y: float, w: float, h: float) -> Point:
     return (x + w / 2, y + h / 2)
 
-def get_nearest_connection_points(rect1: Tuple[float, float, float, float], 
-                                  rect2: Tuple[float, float, float, float]) -> Tuple[Point, Point]:
+def get_nearest_connection_points(rect1: tuple[float, float, float, float], 
+                                  rect2: tuple[float, float, float, float]) -> tuple[Point, Point]:
     """
     Determine the best start and end points for a connection between two rectangles.
     It selects the midpoints of the sides that are closest to each other.

@@ -3,7 +3,7 @@ from tkinter import messagebox
 from enum import Enum, auto
 import re
 import math
-from typing import Any, Tuple, List, Optional
+from typing import Any, Optional
 import tkinter.font as tkfont
 from model import UMLClass, UMLRelationship, UMLDiagram, RelationshipType, Point
 import rendering
@@ -34,7 +34,7 @@ class UMLCanvas(tk.Canvas):
         self.mode = InteractionMode.SELECT
         self.current_rel_type = RelationshipType.ASSOCIATION
         
-        self.selected_classes: List[UMLClass] = []
+        self.selected_classes: list[UMLClass] = []
         self.selected_relationship: Optional[UMLRelationship] = None
         
         # Interaction state
@@ -80,11 +80,8 @@ class UMLCanvas(tk.Canvas):
         # Draw relationships first
         for rel in self.diagram.relationships:
             rendering.draw_relationship_line(self, rel)
-            
-            # Highlight if selected
-            if rel == self.selected_relationship:
-                self._draw_relationship_handles(rel)
 
+        # Draw classes
         for uml_class in self.diagram.classes:
             rendering.draw_class_box(self, uml_class)
             # Highlight selected classes
@@ -95,8 +92,12 @@ class UMLCanvas(tk.Canvas):
                     uml_class.y + uml_class.height + 2,
                     outline="blue", width=2, dash=(4, 4)
                 )
+        
+        # Draw relationship handles ON TOP of class boxes
+        if self.selected_relationship:
+            self._draw_relationship_handles(self.selected_relationship)
 
-    def _calculate_bezier_points(self, rel: UMLRelationship) -> Tuple[Point, Point, Point, Point]:
+    def _calculate_bezier_points(self, rel: UMLRelationship) -> tuple[Point, Point, Point, Point]:
         """Calculates P0, P1, P2, P3 for a relationship."""
         # Note: We don't force re-initialization here to respect manual moves
         # But if missing, we initialize.
@@ -112,8 +113,14 @@ class UMLCanvas(tk.Canvas):
         else:
             p0, p3 = geometry.get_nearest_connection_points(s_rect, t_rect)
             
-        p1 = rel.source_handle if rel.source_handle else p0
-        p2 = rel.target_handle if rel.target_handle else p3
+        p1 = rel.source_handle
+        if not p1:
+            p1 = p0
+            
+        p2 = rel.target_handle
+        if not p2:
+            p2 = p3
+            
         return p0, p1, p2, p3
 
     def _draw_relationship_handles(self, rel: UMLRelationship):
@@ -141,7 +148,7 @@ class UMLCanvas(tk.Canvas):
                 return uml_class
         return None
 
-    def find_relationship_handle_at(self, x, y) -> Tuple[UMLRelationship, HandleType] | None:
+    def find_relationship_handle_at(self, x, y) -> tuple[UMLRelationship, HandleType] | None:
         if not self.selected_relationship:
             return None
             
@@ -149,16 +156,22 @@ class UMLCanvas(tk.Canvas):
         p0, p1, p2, p3 = self._calculate_bezier_points(rel)
         
         threshold = 6
-        if geometry.distance((x, y), p0) <= threshold: return (rel, HandleType.SOURCE_CONNECT)
-        if geometry.distance((x, y), p1) <= threshold: return (rel, HandleType.SOURCE_CONTROL)
-        if geometry.distance((x, y), p2) <= threshold: return (rel, HandleType.TARGET_CONTROL)
-        if geometry.distance((x, y), p3) <= threshold: return (rel, HandleType.TARGET_CONNECT)
+        if geometry.distance((x, y), p0) <= threshold:
+            return (rel, HandleType.SOURCE_CONNECT)
+        if geometry.distance((x, y), p1) <= threshold:
+            return (rel, HandleType.SOURCE_CONTROL)
+        if geometry.distance((x, y), p2) <= threshold:
+            return (rel, HandleType.TARGET_CONTROL)
+        if geometry.distance((x, y), p3) <= threshold:
+            return (rel, HandleType.TARGET_CONNECT)
         
         return None
 
     def find_relationship_at(self, x, y) -> UMLRelationship | None:
         # Check distance to bezier curves
         threshold = 5
+        hits: list[tuple[float, UMLRelationship]] = []
+        
         for rel in self.diagram.relationships:
             p0, p1, p2, p3 = self._calculate_bezier_points(rel)
             
@@ -167,7 +180,15 @@ class UMLCanvas(tk.Canvas):
                 p0, p1, p2, p3, x - threshold, y - threshold, threshold * 2, threshold * 2
             )
             if rect_hit:
-                return rel
+                # Calculate distance from cursor center to intersection point
+                dist = geometry.distance((x, y), rect_hit)
+                hits.append((dist, rel))
+        
+        if hits:
+            # Return the closest one
+            hits.sort(key=lambda item: item[0])
+            return hits[0][1]
+            
         return None
 
     def on_button_press(self, event):
@@ -279,32 +300,19 @@ class UMLCanvas(tk.Canvas):
             rel = self.active_handle_rel
             
             if target_class:
-                new_source = rel.source
-                new_target = rel.target
+                new_source = None
+                new_target = None
                 
                 if self.dragging_handle == HandleType.SOURCE_CONNECT:
                     new_source = target_class
                 elif self.dragging_handle == HandleType.TARGET_CONNECT:
                     new_target = target_class
                 
-                if self.dragging_handle in (HandleType.SOURCE_CONNECT, HandleType.TARGET_CONNECT):
-                    # Validate self-reference
-                    is_self = (new_source == new_target)
-                    allowed_self = rel.type in (
-                        RelationshipType.ASSOCIATION, 
-                        RelationshipType.AGGREGATION, 
-                        RelationshipType.COMPOSITION
+                if new_source or new_target:
+                    success = relationship_logic.rewire_relationship(
+                        self.diagram, rel, new_source, new_target
                     )
-                    
-                    if not is_self or allowed_self:
-                        rel.source = new_source
-                        rel.target = new_target
-                        # Reset handles to default because geometry changed completely
-                        rel.source_handle = None
-                        rel.target_handle = None
-                        relationship_logic.initialize_relationship_handles(rel)
-                        relationship_logic.update_multiple_relationship_offsets(self.diagram)
-                    else:
+                    if not success:
                         messagebox.showwarning("Invalid Operation", "Self-reference not allowed for this relationship type.")
             
             self.dragging_handle = None
