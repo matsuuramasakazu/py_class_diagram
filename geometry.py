@@ -51,6 +51,23 @@ def calculate_bezier_tangent_angle(t: float, p0: Point, p1: Point, p2: Point, p3
           6 * mt * t * (p2[1] - p1[1]) +
           3 * t2 * (p3[1] - p2[1]))
 
+    mag = math.hypot(dx, dy)
+    if mag < 1e-9:
+        # Fallback for degenerate cases (e.g., P2 == P3 at t=1.0)
+        if t >= 0.5:
+            # Use vector from P2 to P3
+            dx = p3[0] - p2[0]
+            dy = p3[1] - p2[1]
+        else:
+            # Use vector from P0 to P1
+            dx = p1[0] - p0[0]
+            dy = p1[1] - p0[1]
+        
+        mag = math.hypot(dx, dy)
+        if mag < 1e-9:
+            # Last resort fallback if control points also coincide
+            return 0.0
+
     return math.atan2(dy, dx)
 
 def line_intersection(p1: Point, p2: Point, p3: Point, p4: Point) -> Optional[Point]:

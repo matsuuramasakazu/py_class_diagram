@@ -193,57 +193,68 @@ class UMLCanvas(tk.Canvas):
 
     def on_button_press(self, event):
         if self.editor_widget:
-            if not self.commit_edit(): return
+            if not self.commit_edit():
+                return
             
         self.drag_start_x = event.x
         self.drag_start_y = event.y
         
         # 1. Check handles (priority)
-        handle_hit = self.find_relationship_handle_at(event.x, event.y)
-        if handle_hit:
-            self.active_handle_rel, self.dragging_handle = handle_hit
-            self.mode = InteractionMode.SELECT # Ensure we are in select mode logic for dragging handles
+        if self._handle_handle_press(event):
             return
 
         clicked_class = self.find_class_at(event.x, event.y)
         
         if self.mode == InteractionMode.SELECT:
-            if clicked_class:
-                if clicked_class not in self.selected_classes:
-                    if not (event.state & 0x0001):
-                        self.selected_classes = [clicked_class]
-                    else:
-                        self.selected_classes.append(clicked_class)
-                self.dragging_class = clicked_class
-                self.selected_relationship = None
+            self._handle_select_press(event, clicked_class)
+        elif self.mode == InteractionMode.CREATE_RELATIONSHIP:
+            self._handle_create_relationship_press(event, clicked_class)
+
+    def _handle_handle_press(self, event) -> bool:
+        handle_hit = self.find_relationship_handle_at(event.x, event.y)
+        if handle_hit:
+            self.active_handle_rel, self.dragging_handle = handle_hit
+            self.mode = InteractionMode.SELECT  # Ensure we are in select mode logic for dragging handles
+            return True
+        return False
+
+    def _handle_select_press(self, event, clicked_class):
+        if clicked_class:
+            if clicked_class not in self.selected_classes:
+                if not (event.state & 0x0001):
+                    self.selected_classes = [clicked_class]
+                else:
+                    self.selected_classes.append(clicked_class)
+            self.dragging_class = clicked_class
+            self.selected_relationship = None
+            self.redraw()
+        else:
+            # Check relationship click
+            rel_hit = self.find_relationship_at(event.x, event.y)
+            if rel_hit:
+                self.selected_relationship = rel_hit
+                self.selected_classes = []
                 self.redraw()
             else:
-                # Check relationship click
-                rel_hit = self.find_relationship_at(event.x, event.y)
-                if rel_hit:
-                    self.selected_relationship = rel_hit
+                if not (event.state & 0x0001):
                     self.selected_classes = []
-                    self.redraw()
-                else:
-                    if not (event.state & 0x0001):
-                        self.selected_classes = []
-                        self.selected_relationship = None
-                    self.redraw()
-                    self.rubber_band_id = self.create_rectangle(
-                        event.x, event.y, event.x, event.y,
-                        outline="gray", dash=(2, 2)
-                    )
-            
-        elif self.mode == InteractionMode.CREATE_RELATIONSHIP:
-            if clicked_class:
-                self.rel_source_class = clicked_class
-                # Start temp line from center of clicked class
-                cx = clicked_class.x + clicked_class.width / 2
-                cy = clicked_class.y + clicked_class.height / 2
-                self.temp_line_id = self.create_line(
-                    cx, cy, event.x, event.y,
-                    dash=(5, 5), fill="red"
+                    self.selected_relationship = None
+                self.redraw()
+                self.rubber_band_id = self.create_rectangle(
+                    event.x, event.y, event.x, event.y,
+                    outline="gray", dash=(2, 2)
                 )
+
+    def _handle_create_relationship_press(self, event, clicked_class):
+        if clicked_class:
+            self.rel_source_class = clicked_class
+            # Start temp line from center of clicked class
+            cx = clicked_class.x + clicked_class.width / 2
+            cy = clicked_class.y + clicked_class.height / 2
+            self.temp_line_id = self.create_line(
+                cx, cy, event.x, event.y,
+                dash=(5, 5), fill="red"
+            )
 
     def on_mouse_drag(self, event):
         dx = event.x - self.drag_start_x
@@ -256,21 +267,24 @@ class UMLCanvas(tk.Canvas):
                 rel.source_handle = (event.x, event.y)
             elif self.dragging_handle == HandleType.TARGET_CONTROL:
                 rel.target_handle = (event.x, event.y)
-            elif self.dragging_handle == HandleType.SOURCE_CONNECT:
-                pass
-            elif self.dragging_handle == HandleType.TARGET_CONNECT:
-                pass
+            
             self.redraw()
+            
             # Draw extra feedback for Connect handles
             if self.dragging_handle in (HandleType.SOURCE_CONNECT, HandleType.TARGET_CONNECT):
-                self.create_line(event.x, event.y, event.x, event.y, fill="red", dash=(2,2), tags="rewire_line")
-                # Maybe connect to P1/P2
+                p0, p1, p2, p3 = self._calculate_bezier_points(rel)
+                
+                # Feedback from original point to current mouse
                 if self.dragging_handle == HandleType.SOURCE_CONNECT:
-                    p1 = rel.source_handle
-                    if p1: self.create_line(event.x, event.y, p1[0], p1[1], fill="gray", dash=(2,2), tags="rewire_line")
+                    # Dash red from current mouse to P1 (first control point)
+                    self.create_line(event.x, event.y, p1[0], p1[1], fill="red", dash=(2, 2), tags="rewire_line")
+                    # Dash gray from original P0 to P1 for context
+                    self.create_line(p0[0], p0[1], p1[0], p1[1], fill="gray", dash=(2, 2), tags="rewire_line")
                 else:
-                    p2 = rel.target_handle
-                    if p2: self.create_line(event.x, event.y, p2[0], p2[1], fill="gray", dash=(2,2), tags="rewire_line")
+                    # Dash red from current mouse to P2 (second control point)
+                    self.create_line(event.x, event.y, p2[0], p2[1], fill="red", dash=(2, 2), tags="rewire_line")
+                    # Dash gray from original P3 to P2
+                    self.create_line(p3[0], p3[1], p2[0], p2[1], fill="gray", dash=(2, 2), tags="rewire_line")
             return
 
         if self.mode == InteractionMode.SELECT:
@@ -287,11 +301,14 @@ class UMLCanvas(tk.Canvas):
                 
         elif self.mode == InteractionMode.CREATE_RELATIONSHIP:
             if self.temp_line_id:
+                if not self.rel_source_class:
+                    return
                 # Update start point to be nearest edge? 
                 # For simplicity, keep start at center, update end to cursor
                 cx = self.rel_source_class.x + self.rel_source_class.width / 2
                 cy = self.rel_source_class.y + self.rel_source_class.height / 2
                 self.coords(self.temp_line_id, cx, cy, event.x, event.y)
+
 
     def on_button_release(self, event):
         # Handle Drop
@@ -372,7 +389,8 @@ class UMLCanvas(tk.Canvas):
 
     def on_double_click(self, event):
         clicked_class = self.find_class_at(event.x, event.y)
-        if not clicked_class: return
+        if not clicked_class:
+            return
             
         rel_y = event.y - clicked_class.y
         header_h = rendering.HEADER_HEIGHT
@@ -389,10 +407,13 @@ class UMLCanvas(tk.Canvas):
             self.start_editing(clicked_class, "operations", clicked_class.x, clicked_class.y + HEADER_HEIGHT + attr_h, clicked_class.width, clicked_class.height - (HEADER_HEIGHT + attr_h))
 
     def start_editing(self, uml_class, part, x, y, w, h):
-        if self.editor_widget and not self.commit_edit(): return
+        if self.editor_widget:
+            if not self.commit_edit():
+                return
             
         self.editing_class = uml_class
         self.editing_part = part
+
         
         if part == "name":
             self.original_value = uml_class.name
@@ -432,7 +453,8 @@ class UMLCanvas(tk.Canvas):
         uml_class.height = HEADER_HEIGHT + attr_h + ops_h
 
     def _get_editor_height(self) -> int:
-        if not self.editor_widget or self.editing_part == "name": return 0
+        if not self.editor_widget or self.editing_part == "name":
+            return 0
         line_count = int(float(self.editor_widget.index(tk.END)) - 1.0)
         return (line_count + 1) * ATTR_LINE_HEIGHT + 10
 
@@ -442,10 +464,12 @@ class UMLCanvas(tk.Canvas):
             self.itemconfigure(self.editor_window_id, height=new_h)
 
     def commit_edit(self, event=None) -> bool:
-        if not self.editor_widget or not self.editing_class: return True
+        if not self.editor_widget or not self.editing_class:
+            return True
             
         if self.editing_part == "name":
-            if self._is_committing: return False
+            if self._is_committing:
+                return False
             self._is_committing = True
             try:
                 new_value = self.editor_widget.get().strip()
