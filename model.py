@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from typing import Optional
+
+Point = tuple[float, float]
 
 # No typing imports needed for built-in generics
 
@@ -42,6 +45,9 @@ class UMLRelationship:
     type: RelationshipType
     source: UMLClass
     target: UMLClass
+    source_handle: Optional[Point] = None
+    target_handle: Optional[Point] = None
+
 
 @dataclass
 class UMLDiagram:

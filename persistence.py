@@ -36,14 +36,28 @@ def to_mermaid(diagram: UMLDiagram) -> str:
 
 
 def _to_layout_dict(diagram: UMLDiagram) -> dict:
-    layout = {}
+    layout = {
+        "classes": {},
+        "relationships": []
+    }
     for uml_class in diagram.classes:
-        layout[uml_class.name] = {
+        layout["classes"][uml_class.name] = {
             "x": uml_class.x,
             "y": uml_class.y,
             "w": uml_class.width,
             "h": uml_class.height
         }
+        
+    for rel in diagram.relationships:
+        rel_data = {
+            "source": rel.source.name,
+            "target": rel.target.name,
+            "type": rel.type.name,
+            "source_handle": rel.source_handle,
+            "target_handle": rel.target_handle
+        }
+        layout["relationships"].append(rel_data)
+        
     return layout
 
 
@@ -137,14 +151,18 @@ def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
     """Parse Mermaid classDiagram text and layout data into a UMLDiagram."""
     diagram = UMLDiagram()
     class_map: dict[str, UMLClass] = {}
+    
+    # Handle backward compatibility where layout_data might be just the class dict
+    classes_layout = layout_data.get("classes", layout_data)
+    relationships_layout = layout_data.get("relationships", [])
 
     def _get_or_create_class(name: str) -> UMLClass:
         if name in class_map:
             return class_map[name]
         
         new_class = UMLClass(name=name)
-        if name in layout_data:
-            layout_info = layout_data[name]
+        if name in classes_layout:
+            layout_info = classes_layout[name]
             if isinstance(layout_info, dict):
                 def _coerce_float(value: object, default: float) -> float:
                     try:
@@ -196,6 +214,36 @@ def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
             
         rel_type = REVERSE_RELATIONSHIP_MAP.get(symbol, RelationshipType.ASSOCIATION)
         relationship = UMLRelationship(type=rel_type, source=source, target=target)
+        
+        # Try to find matching layout data
+        # We search for the first matching relationship in the layout data that hasn't been used?
+        # Or just find one that matches. Since we don't track IDs, we might collide.
+        # But iterating through the list is fine.
+        
+        # Improvement: Filter relationships_layout to find a match
+        found_layout = None
+        for i, r_data in enumerate(relationships_layout):
+            if (r_data.get("source") == source_name and 
+                r_data.get("target") == target_name and 
+                r_data.get("type") == rel_type.name):
+                found_layout = r_data
+                # Optional: Remove from list to avoid reusing? 
+                # But that modifies the input list which might be bad if we re-parse.
+                # Since we rebuild the diagram from scratch, we can just use the first match?
+                # If there are duplicates, this strategy always picks the first one.
+                # If the json has 2 relationships and mermaid has 2, we want to map 1-1, 2-2.
+                # So popping is better.
+                relationships_layout.pop(i)
+                break
+        
+        if found_layout:
+            sh = found_layout.get("source_handle")
+            th = found_layout.get("target_handle")
+            if sh and isinstance(sh, (list, tuple)) and len(sh) == 2:
+                relationship.source_handle = (float(sh[0]), float(sh[1]))
+            if th and isinstance(th, (list, tuple)) and len(th) == 2:
+                relationship.target_handle = (float(th[0]), float(th[1]))
+            
         diagram.add_relationship(relationship)
         
     return diagram

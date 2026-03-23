@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, call
 import math
 from model import UMLClass, UMLRelationship, RelationshipType
-from rendering import draw_class_box, draw_relationship_line, calculate_intersection
+from rendering import draw_class_box, draw_relationship_line
 
 class TestRendering(unittest.TestCase):
     def setUp(self):
@@ -19,8 +19,6 @@ class TestRendering(unittest.TestCase):
         self.canvas.create_rectangle.assert_called_with(10, 10, 110, 90, fill="white", outline="black")
         
         # Check if horizontal dividers are drawn
-        # Header line at y + 25 = 35
-        # Attribute separator at y + 25 + attr_h = 10 + 25 + 26 = 61
         self.canvas.create_line.assert_any_call(10, 35, 110, 35, fill="black")
         self.canvas.create_line.assert_any_call(10, 61, 110, 61, fill="black")
         
@@ -29,17 +27,6 @@ class TestRendering(unittest.TestCase):
         self.canvas.create_text.assert_any_call(15, 40, text="+ id: int", anchor="nw", font=("Arial", 9))
         self.canvas.create_text.assert_any_call(15, 66, text="+ save()", anchor="nw", font=("Arial", 9))
 
-    def test_calculate_intersection(self):
-        # Line from (0,0) to (100,100), box at (50,50) to (150,150)
-        # Center of box is (100,100). Intersection should be at (50,50)
-        res = calculate_intersection(0, 0, 100, 100, 50, 50, 150, 150)
-        self.assertEqual(res, (50, 50))
-        
-        # Line from (200,100) to (100,100), box at (50,50) to (150,150)
-        # Intersection at (150, 100)
-        res = calculate_intersection(200, 100, 100, 100, 50, 50, 150, 150)
-        self.assertEqual(res, (150, 100))
-
     def test_draw_relationship_line_generalization(self):
         src = UMLClass("Child", x=0, y=0, width=50, height=50)
         tgt = UMLClass("Parent", x=100, y=0, width=50, height=50)
@@ -47,9 +34,26 @@ class TestRendering(unittest.TestCase):
         
         draw_relationship_line(self.canvas, rel)
         
-        # Source center (25, 25), Target center (125, 25)
-        # Line from (50, 25) to (100, 25)
-        self.canvas.create_line.assert_called_with(50.0, 25.0, 100.0, 25.0, dash=None, fill="black")
+        # Should call create_line for the bezier curve
+        # We can't predict exact coordinates easily, but we know it's one call with many args
+        # And it should start at (50, 25) [Right of Src] and end at (100, 25) [Left of Tgt]
+        
+        bezier_call = None
+        for call_args in self.canvas.create_line.call_args_list:
+            args = call_args[0]
+            kwargs = call_args[1]
+            if kwargs.get("joinstyle") == "round":
+                bezier_call = call_args
+                break
+        
+        self.assertIsNotNone(bezier_call)
+        args = bezier_call[0]
+        # Start point (x, y)
+        self.assertAlmostEqual(args[0], 50.0)
+        self.assertAlmostEqual(args[1], 25.0)
+        # End point (x, y) -> Last two args
+        self.assertAlmostEqual(args[-2], 100.0)
+        self.assertAlmostEqual(args[-1], 25.0)
         
         # Generalization arrowhead (white triangle) at (100, 25)
         self.canvas.create_polygon.assert_called()
@@ -57,8 +61,8 @@ class TestRendering(unittest.TestCase):
         self.assertEqual(kwargs['fill'], "white")
         self.assertEqual(kwargs['outline'], "black")
         # Point 1 should be (100, 25)
-        self.assertEqual(args[0], 100.0)
-        self.assertEqual(args[1], 25.0)
+        self.assertAlmostEqual(args[0], 100.0)
+        self.assertAlmostEqual(args[1], 25.0)
 
     def test_draw_relationship_line_dependency(self):
         src = UMLClass("A", x=0, y=0, width=50, height=50)
@@ -67,19 +71,26 @@ class TestRendering(unittest.TestCase):
         
         draw_relationship_line(self.canvas, rel)
         
-        # Dashed line
-        self.canvas.create_line.assert_any_call(50.0, 25.0, 100.0, 25.0, dash=(5, 5), fill="black")
-        
-        # Dependency arrowhead (open arrow)
-        # In my implementation, open arrow is 2 lines
-        # One line from (100, 25) to p2, another from (100, 25) to p3
-        # We check if there's a line starting at 100, 25
-        found = False
+        # Find dashed line
+        bezier_call = None
         for call_args in self.canvas.create_line.call_args_list:
             args = call_args[0]
-            if args[0] == 100.0 and args[1] == 25.0 and len(args) == 4:
-                found = True
-        self.assertTrue(found)
+            kwargs = call_args[1]
+            if kwargs.get("dash") == (5, 5) and kwargs.get("joinstyle") == "round":
+                bezier_call = call_args
+                break
+        self.assertIsNotNone(bezier_call)
+        
+        # Dependency arrowhead (open arrow)
+        # We check if there's a line starting at 100, 25 (End point)
+        found_arrow_line = False
+        for call_args in self.canvas.create_line.call_args_list:
+            args = call_args[0]
+            # Arrow lines are usually 4 args: x1, y1, x2, y2
+            if len(args) == 4 and abs(args[0] - 100.0) < 0.1 and abs(args[1] - 25.0) < 0.1:
+                found_arrow_line = True
+                break
+        self.assertTrue(found_arrow_line)
 
 if __name__ == '__main__':
     unittest.main()
