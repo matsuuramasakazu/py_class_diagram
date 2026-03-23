@@ -47,6 +47,8 @@ class UMLRelationship:
     target: UMLClass
     source_handle: Optional[Point] = None
     target_handle: Optional[Point] = None
+    source_side: Optional[int] = None  # 0:Top, 1:Right, 2:Bottom, 3:Left
+    target_side: Optional[int] = None
 
 
 @dataclass
@@ -67,9 +69,25 @@ class UMLDiagram:
                 if uml_class not in (r.source, r.target)
             ]
 
-    def add_relationship(self, relationship: UMLRelationship) -> None:
-        if relationship not in self.relationships:
+    def add_relationship(self, relationship: UMLRelationship) -> bool:
+        """
+        Adds a relationship to the diagram with constraints.
+        Returns True if added, False if rejected (e.g. duplicate generalization).
+        """
+        # Constraint: Only one GENERALIZATION or REALIZATION between the same two classes
+        if relationship.type in (RelationshipType.GENERALIZATION, RelationshipType.REALIZATION):
+            for existing in self.relationships:
+                if (existing.type == relationship.type and 
+                    existing.source == relationship.source and 
+                    existing.target == relationship.target):
+                    return False
+
+        # Use identity check for the final check to allow multiple identical-value relationships
+        # if they are different objects (except for the constrained types above)
+        if not any(r is relationship for r in self.relationships):
             self.relationships.append(relationship)
+            return True
+        return False
 
     def remove_relationship(self, relationship: UMLRelationship) -> None:
         if relationship in self.relationships:
