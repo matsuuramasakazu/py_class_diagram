@@ -19,48 +19,46 @@ def get_attr_height(uml_class):
 def get_ops_height(uml_class):
     return max(MIN_COMPARTMENT_HEIGHT, len(uml_class.operations) * ATTR_LINE_HEIGHT + ATTR_PADDING)
 
+def _calculate_arrow_points(x, y, angle, size):
+    """Helper to calculate the two wings of an arrowhead."""
+    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
+    p3 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
+    return p2, p3
+
 def draw_arrowhead_generalization(canvas, x, y, angle):
     """Draw a white triangle at (x, y) with given angle"""
     size = 15
-    p1 = (x, y)
-    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
-    p3 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
-    canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], fill="white", outline="black")
+    p2, p3 = _calculate_arrow_points(x, y, angle, size)
+    canvas.create_polygon(x, y, p2[0], p2[1], p3[0], p3[1], fill="white", outline="black")
 
 def draw_arrowhead_aggregation(canvas, x, y, angle):
     """Draw a white diamond at (x, y) with given angle"""
     size = 12
-    p1 = (x, y)
-    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
-    p4 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
+    p2, p4 = _calculate_arrow_points(x, y, angle, size)
     # Calculate p3 to complete the diamond
     p3 = (p2[0] + p4[0] - x, p2[1] + p4[1] - y)
-    canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], fill="white", outline="black")
+    canvas.create_polygon(x, y, p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], fill="white", outline="black")
 
 def draw_arrowhead_composition(canvas, x, y, angle):
     """Draw a black diamond at (x, y) with given angle"""
     size = 12
-    p1 = (x, y)
-    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
-    p4 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
+    p2, p4 = _calculate_arrow_points(x, y, angle, size)
     p3 = (p2[0] + p4[0] - x, p2[1] + p4[1] - y)
-    canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], fill="black", outline="black")
+    canvas.create_polygon(x, y, p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], fill="black", outline="black")
+
+def _draw_open_arrow(canvas, x, y, angle, size):
+    """Helper to draw an open V-shape arrow."""
+    p2, p3 = _calculate_arrow_points(x, y, angle, size)
+    canvas.create_line(x, y, p2[0], p2[1], fill="black")
+    canvas.create_line(x, y, p3[0], p3[1], fill="black")
 
 def draw_arrowhead_association(canvas, x, y, angle):
     """Draw an open arrow (V-shape) at (x, y) with given angle"""
-    size = 12
-    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
-    p3 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
-    canvas.create_line(x, y, p2[0], p2[1], fill="black")
-    canvas.create_line(x, y, p3[0], p3[1], fill="black")
+    _draw_open_arrow(canvas, x, y, angle, size=12)
 
 def draw_arrowhead_dependency(canvas, x, y, angle):
     """Draw an open arrow (V-shape) at (x, y) with given angle"""
-    size = 15
-    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
-    p3 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
-    canvas.create_line(x, y, p2[0], p2[1], fill="black")
-    canvas.create_line(x, y, p3[0], p3[1], fill="black")
+    _draw_open_arrow(canvas, x, y, angle, size=15)
 
 def draw_class_box(canvas, uml_class):
     """Draw a class box with 3 compartments"""

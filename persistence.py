@@ -244,8 +244,9 @@ def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
             if th and isinstance(th, (list, tuple)) and len(th) == 2:
                 relationship.target_handle = (float(th[0]), float(th[1]))
             
-        diagram.add_relationship(relationship)
-        
+        if not diagram.add_relationship(relationship):
+            print(f"Warning: Failed to add duplicate relationship: {relationship.type.name} between {relationship.source.name} and {relationship.target.name}")
+            
     return diagram
 
 

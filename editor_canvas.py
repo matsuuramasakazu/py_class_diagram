@@ -417,10 +417,12 @@ class UMLCanvas(tk.Canvas):
                     
                     if not is_self or allowed_self:
                         new_rel = UMLRelationship(self.current_rel_type, self.rel_source_class, target_class)
-                        self.diagram.add_relationship(new_rel)
-                        relationship_logic.initialize_relationship_handles(new_rel)
-                        relationship_logic.update_multiple_relationship_offsets(self.diagram)
-                        created = True
+                        if self.diagram.add_relationship(new_rel):
+                            relationship_logic.initialize_relationship_handles(new_rel)
+                            relationship_logic.update_multiple_relationship_offsets(self.diagram)
+                            created = True
+                        else:
+                            messagebox.showwarning("Invalid Operation", "This relationship already exists between these classes.")
                     else:
                         messagebox.showwarning("Invalid Operation", "Self-reference not allowed for this relationship type.")
                 
