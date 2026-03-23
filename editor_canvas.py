@@ -461,7 +461,14 @@ class UMLCanvas(tk.Canvas):
         ops_h = rendering.get_ops_height(uml_class)
         uml_class.height = HEADER_HEIGHT + attr_h + ops_h
         
-        self.recompute_relation_handles(uml_class, 0, 0)
+        # Reinitialize handles for relationships connected to this class
+        for rel in self.diagram.relationships:
+            if rel.source == uml_class or rel.target == uml_class:
+                # Reset and recalculate handles for proper anchor alignment
+                rel.source_handle = None
+                rel.target_handle = None
+                relationship_logic.initialize_relationship_handles(rel)
+        relationship_logic.update_multiple_relationship_offsets(self.diagram)
 
     def _get_editor_height(self) -> int:
         if not self.editor_widget or self.editing_part == "name":

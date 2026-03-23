@@ -113,16 +113,13 @@ def find_bezier_rect_intersection(p0: Point, p1: Point, p2: Point, p3: Point,
     Find the intersection of a Bezier curve and a rectangle.
     Approximates the Bezier curve as line segments.
     """
-    if num_samples < 1:
-        num_samples = 1
+    num_samples = max(1, num_samples)
         
     segments = get_rect_segments(rect_x, rect_y, rect_w, rect_h)
     
     # Sample points along the bezier curve
-    curve_points = []
-    for i in range(num_samples + 1):
-        t = i / num_samples
-        curve_points.append(calculate_bezier_point(t, p0, p1, p2, p3))
+    curve_points = [calculate_bezier_point(i / num_samples, p0, p1, p2, p3) 
+                    for i in range(num_samples + 1)]
     
     # Check intersection for each segment of the curve against each side of the rect
     for i in range(len(curve_points) - 1):
