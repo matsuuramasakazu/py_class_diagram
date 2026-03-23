@@ -61,6 +61,14 @@ class TestGeometry(unittest.TestCase):
         self.assertAlmostEqual(intersection[0], 10.0)
         self.assertAlmostEqual(intersection[1], 20.0)
 
+    def test_bezier_rect_intersection_zero_samples(self):
+        # Should not crash with num_samples=0
+        rect = (10, 10, 20, 20)
+        p0, p1, p2, p3 = (0, 20), (5, 20), (35, 20), (40, 20)
+        # Should work safely even if we pass num_samples <= 0
+        intersection = find_bezier_rect_intersection(p0, p1, p2, p3, *rect, num_samples=0)
+        self.assertIsNotNone(intersection)
+
     def test_nearest_connection_points(self):
         # Box 1 at (0,0, 10,10) -> Center (5,5)
         # Box 2 at (20,0, 10,10) -> Center (25,5)

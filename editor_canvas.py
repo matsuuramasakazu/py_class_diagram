@@ -292,6 +292,7 @@ class UMLCanvas(tk.Canvas):
                 for uml_class in self.selected_classes:
                     uml_class.x += dx
                     uml_class.y += dy
+                    self.recompute_relation_handles(uml_class, dx, dy)
                     
                 self.drag_start_x = event.x
                 self.drag_start_y = event.y
@@ -310,6 +311,14 @@ class UMLCanvas(tk.Canvas):
                 self.coords(self.temp_line_id, cx, cy, event.x, event.y)
 
 
+    def recompute_relation_handles(self, uml_class: UMLClass, dx: float, dy: float):
+        """Update absolute handles of any relationship connected to this class."""
+        for rel in self.diagram.relationships:
+            if rel.source == uml_class and rel.source_handle:
+                rel.source_handle = (rel.source_handle[0] + dx, rel.source_handle[1] + dy)
+            if rel.target == uml_class and rel.target_handle:
+                rel.target_handle = (rel.target_handle[0] + dx, rel.target_handle[1] + dy)
+
     def on_button_release(self, event):
         # Handle Drop
         if self.dragging_handle and self.active_handle_rel:
@@ -325,7 +334,7 @@ class UMLCanvas(tk.Canvas):
                 elif self.dragging_handle == HandleType.TARGET_CONNECT:
                     new_target = target_class
                 
-                if new_source or new_target:
+                if (new_source and new_source != rel.source) or (new_target and new_target != rel.target):
                     success = relationship_logic.rewire_relationship(
                         self.diagram, rel, new_source, new_target
                     )
@@ -451,6 +460,8 @@ class UMLCanvas(tk.Canvas):
         attr_h = rendering.get_attr_height(uml_class)
         ops_h = rendering.get_ops_height(uml_class)
         uml_class.height = HEADER_HEIGHT + attr_h + ops_h
+        
+        self.recompute_relation_handles(uml_class, 0, 0)
 
     def _get_editor_height(self) -> int:
         if not self.editor_widget or self.editing_part == "name":
