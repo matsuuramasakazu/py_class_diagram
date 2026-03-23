@@ -46,6 +46,14 @@ def draw_arrowhead_composition(canvas, x, y, angle):
     p3 = (p2[0] + p4[0] - x, p2[1] + p4[1] - y)
     canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], fill="black", outline="black")
 
+def draw_arrowhead_association(canvas, x, y, angle):
+    """Draw an open arrow (V-shape) at (x, y) with given angle"""
+    size = 12
+    p2 = (x - size * math.cos(angle - math.pi/6), y - size * math.sin(angle - math.pi/6))
+    p3 = (x - size * math.cos(angle + math.pi/6), y - size * math.sin(angle + math.pi/6))
+    canvas.create_line(x, y, p2[0], p2[1], fill="black")
+    canvas.create_line(x, y, p3[0], p3[1], fill="black")
+
 def draw_arrowhead_dependency(canvas, x, y, angle):
     """Draw an open arrow (V-shape) at (x, y) with given angle"""
     size = 15
@@ -109,7 +117,7 @@ def draw_relationship_line(canvas, relationship):
         p3 = (s_rect[0] + s_rect[2], s_rect[1] + s_rect[3] / 2) # Right center
     else:
         # Dynamic nearest connection points
-        p0, p3 = geometry.get_nearest_connection_points(s_rect, t_rect)
+        (p0, _s1), (p3, _s2) = geometry.get_nearest_connection_points(s_rect, t_rect)
 
     # 2. Control Points
     p1 = relationship.source_handle
@@ -150,3 +158,5 @@ def draw_relationship_line(canvas, relationship):
         draw_arrowhead_composition(canvas, x2, y2, angle)
     elif rel_type == RelationshipType.DEPENDENCY:
         draw_arrowhead_dependency(canvas, x2, y2, angle)
+    elif rel_type == RelationshipType.ASSOCIATION:
+        draw_arrowhead_association(canvas, x2, y2, angle)

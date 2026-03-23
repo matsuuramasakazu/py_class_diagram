@@ -64,8 +64,29 @@ class UMLCanvas(tk.Canvas):
         self.bind("<B1-Motion>", self.on_mouse_drag)
         self.bind("<ButtonRelease-1>", self.on_button_release)
         self.bind("<Double-Button-1>", self.on_double_click)
+        self.bind("<Delete>", self.delete_selected)
         
         self.redraw()
+
+    def delete_selected(self, event=None):
+        if self.editor_widget:
+            return
+            
+        changed = False
+        if self.selected_relationship:
+            self.diagram.remove_relationship(self.selected_relationship)
+            self.selected_relationship = None
+            changed = True
+            
+        if self.selected_classes:
+            for uml_class in self.selected_classes:
+                self.diagram.remove_class(uml_class)
+            self.selected_classes = []
+            changed = True
+            
+        if changed:
+            relationship_logic.update_multiple_relationship_offsets(self.diagram)
+            self.redraw()
 
     def set_mode(self, mode: InteractionMode, rel_type: RelationshipType | None = None):
         self.mode = mode
@@ -111,7 +132,7 @@ class UMLCanvas(tk.Canvas):
             p0 = (s_rect[0] + s_rect[2] / 2, s_rect[1] + s_rect[3])
             p3 = (s_rect[0] + s_rect[2], s_rect[1] + s_rect[3] / 2)
         else:
-            p0, p3 = geometry.get_nearest_connection_points(s_rect, t_rect)
+            (p0, _s1), (p3, _s2) = geometry.get_nearest_connection_points(s_rect, t_rect)
             
         p1 = rel.source_handle
         if not p1:
@@ -192,6 +213,7 @@ class UMLCanvas(tk.Canvas):
         return None
 
     def on_button_press(self, event):
+        self.focus_set() # Enable keyboard events for the canvas
         if self.editor_widget:
             if not self.commit_edit():
                 return
@@ -362,8 +384,19 @@ class UMLCanvas(tk.Canvas):
                                 self.selected_classes.append(uml_class)
                 self.delete(self.rubber_band_id)
                 self.rubber_band_id = None
-                self.redraw()
+            
+            if self.dragging_class:
+                # Reset handles for all relationships connected to moved classes
+                # This ensures layout is recalculated based on the final position
+                for rel in self.diagram.relationships:
+                    if rel.source in self.selected_classes or rel.target in self.selected_classes:
+                        rel.source_handle = None
+                        rel.target_handle = None
+                        relationship_logic.initialize_relationship_handles(rel)
+                relationship_logic.update_multiple_relationship_offsets(self.diagram)
+            
             self.dragging_class = None
+            self.redraw()
             
         elif self.mode == InteractionMode.CREATE_RELATIONSHIP:
             if self.rel_source_class:

@@ -76,9 +76,11 @@ class TestGeometry(unittest.TestCase):
         r1 = (0, 0, 10, 10)
         r2 = (20, 0, 10, 10)
         
-        p1, p2 = get_nearest_connection_points(r1, r2)
+        (p1, s1), (p2, s2) = get_nearest_connection_points(r1, r2)
         self.assertEqual(p1, (10, 5)) # Right mid of r1
         self.assertEqual(p2, (20, 5)) # Left mid of r2
+        self.assertEqual(s1, 1) # Right side
+        self.assertEqual(s2, 3) # Left side
 
 if __name__ == '__main__':
     unittest.main()
