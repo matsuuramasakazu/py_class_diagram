@@ -1,5 +1,4 @@
 import math
-from dataclasses import dataclass
 from typing import Tuple, Optional, List
 
 Point = Tuple[float, float]

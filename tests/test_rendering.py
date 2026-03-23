@@ -42,7 +42,7 @@ class TestRendering(unittest.TestCase):
         for call_args in self.canvas.create_line.call_args_list:
             args = call_args[0]
             kwargs = call_args[1]
-            if kwargs.get("join") == "round":
+            if kwargs.get("joinstyle") == "round":
                 bezier_call = call_args
                 break
         
@@ -76,7 +76,7 @@ class TestRendering(unittest.TestCase):
         for call_args in self.canvas.create_line.call_args_list:
             args = call_args[0]
             kwargs = call_args[1]
-            if kwargs.get("dash") == (5, 5) and kwargs.get("join") == "round":
+            if kwargs.get("dash") == (5, 5) and kwargs.get("joinstyle") == "round":
                 bezier_call = call_args
                 break
         self.assertIsNotNone(bezier_call)

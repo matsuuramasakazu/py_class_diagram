@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Tuple, Optional
+from typing import Optional
 
-Point = Tuple[float, float]
+Point = tuple[float, float]
 
 # No typing imports needed for built-in generics
 

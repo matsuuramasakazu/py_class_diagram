@@ -153,7 +153,7 @@ def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
     class_map: dict[str, UMLClass] = {}
     
     # Handle backward compatibility where layout_data might be just the class dict
-    classes_layout = layout_data.get("classes", layout_data) if "classes" in layout_data else layout_data
+    classes_layout = layout_data.get("classes", layout_data)
     relationships_layout = layout_data.get("relationships", [])
 
     def _get_or_create_class(name: str) -> UMLClass:
@@ -239,8 +239,10 @@ def _parse_mermaid(mermaid_str: str, layout_data: dict) -> UMLDiagram:
         if found_layout:
             sh = found_layout.get("source_handle")
             th = found_layout.get("target_handle")
-            if sh: relationship.source_handle = tuple(sh)
-            if th: relationship.target_handle = tuple(th)
+            if sh and isinstance(sh, (list, tuple)) and len(sh) == 2:
+                relationship.source_handle = (float(sh[0]), float(sh[1]))
+            if th and isinstance(th, (list, tuple)) and len(th) == 2:
+                relationship.target_handle = (float(th[0]), float(th[1]))
             
         diagram.add_relationship(relationship)
         

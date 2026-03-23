@@ -222,7 +222,7 @@ class TestDeserialize(unittest.TestCase):
             if "classes" in data["layout"]:
                 data["layout"]["classes"].pop("ClassB", None)
             else:
-                 # Legacy format fallback (though serialize produces new format)
+                # Legacy format fallback (though serialize produces new format)
                 data["layout"].pop("ClassB", None)
             return f"<!--\n{json.dumps(data, indent=4)}\n-->"
         content = re.sub(r"<!--\s*(\{.*?\})\s*-->", remove_classb_from_json, content, flags=re.DOTALL)

@@ -91,7 +91,9 @@ def draw_class_box(canvas, uml_class):
 
 def draw_relationship_line(canvas, relationship):
     """Draw a Bezier curve between two classes with correct arrowheads"""
-    relationship_logic.initialize_relationship_handles(relationship)
+    # Only initialize if handles are missing (don't overwrite manual edits)
+    if not relationship.source_handle or not relationship.target_handle:
+        relationship_logic.initialize_relationship_handles(relationship)
 
     src = relationship.source
     tgt = relationship.target
@@ -131,10 +133,7 @@ def draw_relationship_line(canvas, relationship):
     if rel_type in (RelationshipType.DEPENDENCY, RelationshipType.REALIZATION):
         dash = (5, 5)
 
-    # Using smooth=True for Tkinter to do its own smoothing on top of our points?
-    # Or just lines. Our points are dense enough.
-    # line join round makes it smoother.
-    canvas.create_line(*points, dash=dash, fill="black", width=1, join="round")
+    canvas.create_line(*points, dash=dash, fill="black", width=1, joinstyle="round")
 
     # 5. Draw Arrowhead at End (p3)
     # Angle is tangent at t=1.0

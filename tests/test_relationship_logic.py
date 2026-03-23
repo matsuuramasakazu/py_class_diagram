@@ -1,7 +1,6 @@
 import unittest
 from model import UMLDiagram, UMLClass, UMLRelationship, RelationshipType
 import relationship_logic
-import geometry
 
 class TestRelationshipLogic(unittest.TestCase):
     def setUp(self):
@@ -65,11 +64,12 @@ class TestRelationshipLogic(unittest.TestCase):
         # Check y-coordinates of handles. They should be different.
         # Center line is y=50.
         
-        # Since we have 3, one should be roughly 50 (middle), one < 50, one > 50.
-        ys = sorted([r1.source_handle[1], r2.source_handle[1], r3.target_handle[1]])
+        # For r1 (A->B), source_handle is near A.
+        # For r2 (A->B), source_handle is near A.
+        # For r3 (B->A), target_handle is near A (since it ends at A).
+        # We compare these three points which are roughly at the same x (near A's right edge).
         
-        # Note: r3 is reversed, so its target handle is near A (source of r1/r2).
-        # We compare handles near A.
+        ys = sorted([r1.source_handle[1], r2.source_handle[1], r3.target_handle[1]])
         
         self.assertNotAlmostEqual(ys[0], ys[1])
         self.assertNotAlmostEqual(ys[1], ys[2])
