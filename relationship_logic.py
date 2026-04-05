@@ -20,43 +20,36 @@ def initialize_relationship_handles(rel: UMLRelationship) -> None:
         # Self-reference
         # Start: Bottom center
         # End: Right center
-        # Curve: Around bottom-right
         
         # Start point (Bottom center)
-        p1 = (s_rect[0] + s_rect[2] / 2, s_rect[1] + s_rect[3])
+        p1_base = (s_rect[0] + s_rect[2] / 2, s_rect[1] + s_rect[3])
         # End point (Right center)
-        p2 = (s_rect[0] + s_rect[2], s_rect[1] + s_rect[3] / 2)
-        
-        # Control points to make a nice loop
-        # P_handle1: Downwards from P1
-        # P_handle2: Rightwards from P2
+        p2_base = (s_rect[0] + s_rect[2], s_rect[1] + s_rect[3] / 2)
         
         loop_size = 30
-        h1 = (p1[0], p1[1] + loop_size)
-        h2 = (p2[0] + loop_size, p2[1])
+        h1 = (p1_base[0], p1_base[1] + loop_size)
+        h2 = (p2_base[0] + loop_size, p2_base[1])
         
         rel.source_handle = h1
         rel.target_handle = h2
+        rel.source_side = 2 # Bottom
+        rel.target_side = 1 # Right
         
     else:
         # Normal relationship
-        p1, p2 = geometry.get_nearest_connection_points(s_rect, t_rect)
+        (p1, s1), (p2, s2) = geometry.get_nearest_connection_points(s_rect, t_rect)
+        rel.source_side = s1
+        rel.target_side = s2
         
         # Vector from p1 to p2
         v = geometry.subtract_points(p2, p1)
         d = geometry.distance(p1, p2)
         
         if d > 0:
-            # 10% from start and end (as per user requirement)
+            # 10% from start and end
             factor = 0.1
-            
-            # h1 = p1 + v * 0.1
-            h1 = geometry.add_points(p1, geometry.multiply_point(v, factor))
-            # h2 = p2 - v * 0.1
-            h2 = geometry.subtract_points(p2, geometry.multiply_point(v, factor))
-            
-            rel.source_handle = h1
-            rel.target_handle = h2
+            rel.source_handle = geometry.add_points(p1, geometry.multiply_point(v, factor))
+            rel.target_handle = geometry.subtract_points(p2, geometry.multiply_point(v, factor))
         else:
             rel.source_handle = p1
             rel.target_handle = p2
@@ -112,7 +105,7 @@ def update_multiple_relationship_offsets(diagram: UMLDiagram) -> None:
         
         for i, rel in enumerate(rels):
             # Direction check: Is it A->B or B->A?
-            p1_c, p2_c = geometry.get_nearest_connection_points(get_class_rect(c1), get_class_rect(c2))
+            (p1_c, _s1), (p2_c, _s2) = geometry.get_nearest_connection_points(get_class_rect(c1), get_class_rect(c2))
             
             # Vector V
             vx = p2_c[0] - p1_c[0]

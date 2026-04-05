@@ -137,41 +137,42 @@ def get_rect_center(x: float, y: float, w: float, h: float) -> Point:
     return (x + w / 2, y + h / 2)
 
 def get_nearest_connection_points(rect1: tuple[float, float, float, float], 
-                                  rect2: tuple[float, float, float, float]) -> tuple[Point, Point]:
+                                  rect2: tuple[float, float, float, float]) -> tuple[tuple[Point, int], tuple[Point, int]]:
     """
     Determine the best start and end points for a connection between two rectangles.
     It selects the midpoints of the sides that are closest to each other.
     rect format: (x, y, w, h)
+    Returns: ((p1, side1), (p2, side2)) where side is 0:Top, 1:Right, 2:Bottom, 3:Left
     """
     r1_x, r1_y, r1_w, r1_h = rect1
     r2_x, r2_y, r2_w, r2_h = rect2
 
     # Midpoints of 4 sides for Rect 1
     r1_mids = [
-        (r1_x + r1_w / 2, r1_y),          # Top
-        (r1_x + r1_w, r1_y + r1_h / 2),   # Right
-        (r1_x + r1_w / 2, r1_y + r1_h),   # Bottom
-        (r1_x, r1_y + r1_h / 2)           # Left
+        (r1_x + r1_w / 2, r1_y),          # 0: Top
+        (r1_x + r1_w, r1_y + r1_h / 2),   # 1: Right
+        (r1_x + r1_w / 2, r1_y + r1_h),   # 2: Bottom
+        (r1_x, r1_y + r1_h / 2)           # 3: Left
     ]
 
     # Midpoints of 4 sides for Rect 2
     r2_mids = [
-        (r2_x + r2_w / 2, r2_y),          # Top
-        (r2_x + r2_w, r2_y + r2_h / 2),   # Right
-        (r2_x + r2_w / 2, r2_y + r2_h),   # Bottom
-        (r2_x, r2_y + r2_h / 2)           # Left
+        (r2_x + r2_w / 2, r2_y),          # 0: Top
+        (r2_x + r2_w, r2_y + r2_h / 2),   # 1: Right
+        (r2_x + r2_w / 2, r2_y + r2_h),   # 2: Bottom
+        (r2_x, r2_y + r2_h / 2)           # 3: Left
     ]
 
     min_dist = float('inf')
-    best_p1 = r1_mids[0]
-    best_p2 = r2_mids[0]
+    best_idx1 = 0
+    best_idx2 = 0
 
-    for p1 in r1_mids:
-        for p2 in r2_mids:
+    for i, p1 in enumerate(r1_mids):
+        for j, p2 in enumerate(r2_mids):
             d = distance(p1, p2)
             if d < min_dist:
                 min_dist = d
-                best_p1 = p1
-                best_p2 = p2
+                best_idx1 = i
+                best_idx2 = j
 
-    return best_p1, best_p2
+    return (r1_mids[best_idx1], best_idx1), (r2_mids[best_idx2], best_idx2)
